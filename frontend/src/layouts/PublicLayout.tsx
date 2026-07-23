@@ -1,4 +1,5 @@
-import { Instagram, Mail, Menu, Youtube } from "lucide-react";
+import { Instagram, Mail, Menu, X, Youtube } from "lucide-react";
+import { useState } from "react";
 import { Link, NavLink, Outlet } from "react-router-dom";
 
 import { Logo } from "@/components/Logo";
@@ -12,6 +13,10 @@ const nav = [
 ];
 
 export function PublicLayout() {
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+  const closeMobileMenu = () => setIsMobileMenuOpen(false);
+
   return (
     <div className="min-h-screen bg-mirage-bg text-white">
       <header className="fixed left-0 right-0 top-0 z-50 border-b border-white/10 bg-mirage-bg/72 backdrop-blur-xl">
@@ -42,11 +47,47 @@ export function PublicLayout() {
             </Link>
           </nav>
           <button
-            className="border border-mirage-border p-2 text-mirage-muted md:hidden"
-            aria-label="Open navigation"
+            className="border border-mirage-border p-2 text-mirage-muted transition hover:border-mirage-cyan hover:text-white md:hidden"
+            aria-controls="mobile-navigation"
+            aria-expanded={isMobileMenuOpen}
+            aria-label={isMobileMenuOpen ? "Close navigation" : "Open navigation"}
+            onClick={() => setIsMobileMenuOpen((isOpen) => !isOpen)}
           >
-            <Menu size={20} />
+            {isMobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
           </button>
+        </div>
+        <div
+          id="mobile-navigation"
+          className={`border-t border-white/10 bg-mirage-bg/95 px-5 pb-5 pt-2 shadow-glass backdrop-blur-xl transition md:hidden ${
+            isMobileMenuOpen ? "block" : "hidden"
+          }`}
+        >
+          <nav className="grid gap-1">
+            {nav.map((item) => (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                end={item.to === "/"}
+                onClick={closeMobileMenu}
+                className={({ isActive }) =>
+                  `border border-transparent px-4 py-3 text-sm font-semibold uppercase tracking-[0.2em] transition ${
+                    isActive
+                      ? "border-white/10 bg-white text-black"
+                      : "text-mirage-muted hover:border-white/10 hover:bg-white/[0.06] hover:text-white"
+                  }`
+                }
+              >
+                {item.label}
+              </NavLink>
+            ))}
+            <Link
+              to="/admin"
+              onClick={closeMobileMenu}
+              className="mt-2 border border-mirage-border px-4 py-3 text-sm font-semibold uppercase tracking-[0.2em] text-mirage-muted transition hover:border-mirage-cyan hover:bg-white/[0.06] hover:text-white"
+            >
+              Garage OS
+            </Link>
+          </nav>
         </div>
       </header>
       <Outlet />
