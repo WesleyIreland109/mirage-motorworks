@@ -1,0 +1,15 @@
+node_modules/
+dist/
+build/
+.gradle/
+.idea/
+.DS_Store
+*.iml
+*.log
+*.tsbuildinfo
+.env
+frontend/.env.local
+frontend/assets/
+backend/.env
+frontend/vite.config.js
+frontend/vite.config.d.ts
