@@ -1,4 +1,5 @@
 import type { Vehicle } from "@/types/vehicle";
+import { assetPath } from "@/lib/assets";
 
 export const mockVehicles: Vehicle[] = [
   {
@@ -19,11 +20,11 @@ export const mockVehicles: Vehicle[] = [
     investedAmount: 43000,
     projectedProfit: 7000,
     daysInInventory: 6,
-    heroImage: "/vehicles/type-r/hero.jpg",
+    heroImage: assetPath("vehicles/type-r/hero.jpg"),
     gallery: [
-      "/vehicles/type-r/front.jpg",
-      "/vehicles/type-r/side.jpg",
-      "/vehicles/type-r/rear.jpg",
+      assetPath("vehicles/type-r/front.jpg"),
+      assetPath("vehicles/type-r/side.jpg"),
+      assetPath("vehicles/type-r/rear.jpg"),
     ],
     highlights: [
       "Championship White over red-accented cabin",
@@ -56,11 +57,11 @@ export const mockVehicles: Vehicle[] = [
     investedAmount: 41000,
     projectedProfit: 9000,
     daysInInventory: 4,
-    heroImage: "/vehicles/camaro/hero.jpg",
+    heroImage: assetPath("vehicles/camaro/hero.jpg"),
     gallery: [
-      "/vehicles/camaro/front.jpg",
-      "/vehicles/camaro/detail.jpg",
-      "/vehicles/camaro/rear.jpg",
+      assetPath("vehicles/camaro/front.jpg"),
+      assetPath("vehicles/camaro/detail.jpg"),
+      assetPath("vehicles/camaro/rear.jpg"),
     ],
     highlights: [
       "2SS V8 coupe",
