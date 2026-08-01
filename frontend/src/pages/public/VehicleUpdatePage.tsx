@@ -36,8 +36,13 @@ const timeline = [
   { label: "Ready", status: "todo", detail: "Buyer dossier and shipment handoff after signoff." },
 ];
 
-export function VehicleUpdatePage() {
-  const { slug = "2013-chevrolet-camaro-2ss" } = useParams();
+type VehicleUpdatePageProps = {
+  slugOverride?: string;
+};
+
+export function VehicleUpdatePage({ slugOverride }: VehicleUpdatePageProps = {}) {
+  const { slug: routeSlug } = useParams();
+  const slug = slugOverride ?? routeSlug ?? "2013-chevrolet-camaro-2ss";
   const vehicle =
     mockVehicles.find((vehicle) => vehicle.slug === slug) ??
     mockVehicles.find((vehicle) => vehicle.slug === "2013-chevrolet-camaro-2ss");

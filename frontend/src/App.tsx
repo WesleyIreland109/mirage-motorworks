@@ -1,4 +1,4 @@
-import { Navigate, Route, Routes } from "react-router-dom";
+import { Navigate, Route, Routes, useSearchParams } from "react-router-dom";
 
 import { AdminLayout } from "@/layouts/AdminLayout";
 import { PublicLayout } from "@/layouts/PublicLayout";
@@ -13,11 +13,22 @@ import { JournalPage } from "@/pages/public/JournalPage";
 import { VehicleUpdatePage } from "@/pages/public/VehicleUpdatePage";
 import { VehicleDetailsPage } from "@/pages/public/VehicleDetailsPage";
 
+function HomeRoute() {
+  const [searchParams] = useSearchParams();
+  const updateSlug = searchParams.get("update");
+
+  if (updateSlug) {
+    return <VehicleUpdatePage slugOverride={updateSlug} />;
+  }
+
+  return <HomePage />;
+}
+
 export function App() {
   return (
     <Routes>
       <Route element={<PublicLayout />}>
-        <Route index element={<HomePage />} />
+        <Route index element={<HomeRoute />} />
         <Route path="inventory" element={<InventoryPage />} />
         <Route path="inventory/:slug" element={<VehicleDetailsPage />} />
         <Route path="about" element={<AboutPage />} />
