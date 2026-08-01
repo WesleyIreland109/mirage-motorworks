@@ -20,12 +20,12 @@ import { mockVehicles } from "@/data/mockVehicles";
 import { cn, formatCurrency } from "@/lib/utils";
 
 const updateCopy = {
-  headline: "Your Camaro is 60% through prep.",
+  headline: "The Camaro is 60% through prep.",
   summary:
     "Mechanical inspection is underway, documentation is organized, and the next checkpoint is tire/brake measurements before final road test and detail.",
   progress: 60,
   textMessage:
-    "The Camaro has a new Mirage Motorworks progress update: mechanical inspection is underway and the build is 60% complete.",
+    "The Camaro has a new Mirage Motorworks shop update: mechanical inspection is underway and the prep is 60% complete.",
 };
 
 const timeline = [

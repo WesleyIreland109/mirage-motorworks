@@ -195,7 +195,7 @@ export function AdminDashboard() {
                   {job!.blocker}
                 </div>
                 <Button asChild variant="secondary" className="mt-4 w-full">
-                  <Link to={`/updates/${vehicle.slug}`}>View customer update</Link>
+                  <Link to={`/updates/${vehicle.slug}`}>View shop update</Link>
                 </Button>
               </div>
 
