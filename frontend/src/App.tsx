@@ -10,6 +10,7 @@ import { ContactPage } from "@/pages/public/ContactPage";
 import { HomePage } from "@/pages/public/HomePage";
 import { InventoryPage } from "@/pages/public/InventoryPage";
 import { JournalPage } from "@/pages/public/JournalPage";
+import { VehicleUpdatePage } from "@/pages/public/VehicleUpdatePage";
 import { VehicleDetailsPage } from "@/pages/public/VehicleDetailsPage";
 
 export function App() {
@@ -23,6 +24,7 @@ export function App() {
         <Route path="contact" element={<ContactPage />} />
         <Route path="journal" element={<JournalPage />} />
       </Route>
+      <Route path="updates/:slug" element={<VehicleUpdatePage />} />
       <Route path="admin" element={<AdminLayout />}>
         <Route index element={<AdminDashboard />} />
         <Route path="inventory" element={<AdminInventory />} />

@@ -13,8 +13,10 @@ import {
   Wrench,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
+import { Link } from "react-router-dom";
 
 import { listVehicles } from "@/api/client";
+import { Button } from "@/components/ui/button";
 import { garageJobs } from "@/data/garageOps";
 import { MetricCard } from "@/components/MetricCard";
 import { Card } from "@/components/ui/card";
@@ -192,6 +194,9 @@ export function AdminDashboard() {
                 <div className="mt-5 border border-mirage-orange/30 bg-mirage-orange/10 p-3 text-sm text-mirage-orange">
                   {job!.blocker}
                 </div>
+                <Button asChild variant="secondary" className="mt-4 w-full">
+                  <Link to={`/updates/${vehicle.slug}`}>View customer update</Link>
+                </Button>
               </div>
 
               <div className="grid gap-5 p-5 lg:grid-cols-2">
