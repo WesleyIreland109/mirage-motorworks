@@ -1,0 +1,16 @@
+id: bronco
+displayName: Ford Bronco
+osName: BRONCO OS
+manufacturer: Ford
+model: Bronco
+generation: Bronco
+yearRange: 2021+
+redlineRpm: 6500
+speedUnit: mph
+temperatureUnit: fahrenheit
+pressureUnit: psi
+supportedMetrics: [rpm, vehicleSpeed, coolantTemperature, intakeAirTemperature, throttlePosition]
+preferredLayout: monitor
+warningThresholds: {coolantTempHigh: 225, oilTempHigh: 265, oilPressureLow: 15, batteryVoltageLow: 11.8}
+shiftLights: {enabled: true, startRpm: 5000, warningRpm: 6000, redlineRpm: 6500}
+startupText: INITIALIZING BRONCO OS

@@ -1,0 +1,13 @@
+FROM golang:1.23-alpine AS build
+WORKDIR /src
+COPY go.mod go.sum* ./
+RUN go mod download
+COPY apps/telemetry-service apps/telemetry-service
+COPY internal internal
+RUN CGO_ENABLED=0 go build -o /telemetry-service ./apps/telemetry-service
+FROM alpine:3.21
+WORKDIR /app
+COPY --from=build /telemetry-service /usr/local/bin/telemetry-service
+COPY config config
+EXPOSE 8080
+ENTRYPOINT ["telemetry-service","-listen","0.0.0.0:8080"]

@@ -1,0 +1,9 @@
+services:
+  telemetry-service:
+    build: {context: ., dockerfile: Dockerfile.backend}
+    environment: [DEV_MODE=true, VEHICLE_PROFILE=fk8, UI_THEME=mirage-retro]
+    ports: ["127.0.0.1:8080:8080"]
+  dashboard:
+    build: {context: ., dockerfile: Dockerfile.dashboard}
+    ports: ["127.0.0.1:5173:80"]
+    depends_on: [telemetry-service]

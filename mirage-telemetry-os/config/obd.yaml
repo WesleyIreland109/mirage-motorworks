@@ -1,0 +1,15 @@
+autoDiscovery: true
+preferredAdapter: auto
+preferredPort: auto
+baudRate: 115200
+# Conservative ELM terminal setup only. ATSP0 requests automatic protocol
+# selection; none of these commands writes to a vehicle ECU.
+initialization:
+  - ATZ   # reset adapter
+  - ATE0  # disable command echo
+  - ATL0  # disable line feeds
+  - ATS0  # disable spaces
+  - ATH0  # hide CAN headers for standard decoding
+  - ATSP0 # automatically detect OBD protocol
+# Populate after inspecting the physical Vgate USB VID/PID.
+knownUSBIDs: []

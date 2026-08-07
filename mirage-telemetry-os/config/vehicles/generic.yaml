@@ -1,0 +1,16 @@
+id: generic
+displayName: Unknown Vehicle
+osName: MIRAGE VEHICLE OS
+manufacturer: UNKNOWN
+model: UNKNOWN
+generation: UNKNOWN
+yearRange: UNKNOWN
+redlineRpm: 7000
+speedUnit: mph
+temperatureUnit: fahrenheit
+pressureUnit: psi
+supportedMetrics: []
+preferredLayout: monitor
+warningThresholds: {coolantTempHigh: 225, oilTempHigh: 260, oilPressureLow: 15, batteryVoltageLow: 11.8}
+shiftLights: {enabled: true, startRpm: 5500, warningRpm: 6500, redlineRpm: 7000}
+startupText: INITIALIZING MIRAGE VEHICLE OS

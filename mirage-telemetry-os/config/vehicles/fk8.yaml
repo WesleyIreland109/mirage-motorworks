@@ -1,0 +1,16 @@
+id: fk8
+displayName: Honda Civic Type R FK8
+osName: FK8 OS
+manufacturer: Honda
+model: Civic Type R
+generation: FK8
+yearRange: 2017-2021
+redlineRpm: 7000
+speedUnit: mph
+temperatureUnit: fahrenheit
+pressureUnit: psi
+preferredLayout: performance
+supportedMetrics: [rpm, vehicle_speed_mph, boost_psi, throttle_percent, coolant_temp_f, oil_temp_f, oil_pressure_psi, intake_air_temp_f, afr, battery_voltage, gear]
+warningThresholds: {coolantTempHigh: 220, oilTempHigh: 260, oilPressureLow: 15, batteryVoltageLow: 11.8}
+shiftLights: {enabled: true, startRpm: 5500, warningRpm: 6500, redlineRpm: 7000}
+startupText: INITIALIZING VEHICLE INTERFACE

@@ -1,0 +1,16 @@
+id: fl5
+displayName: Honda Civic Type R FL5
+osName: FL5 OS
+manufacturer: Honda
+model: Civic Type R
+generation: FL5
+yearRange: 2023+
+redlineRpm: 7000
+speedUnit: mph
+temperatureUnit: fahrenheit
+pressureUnit: psi
+supportedMetrics: [rpm, vehicleSpeed, coolantTemperature, intakeAirTemperature, throttlePosition]
+preferredLayout: performance
+warningThresholds: {coolantTempHigh: 220, oilTempHigh: 260, oilPressureLow: 15, batteryVoltageLow: 11.8}
+shiftLights: {enabled: true, startRpm: 5500, warningRpm: 6500, redlineRpm: 7000}
+startupText: INITIALIZING FL5 OS

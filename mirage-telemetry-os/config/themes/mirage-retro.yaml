@@ -1,0 +1,15 @@
+id: mirage-retro
+name: Mirage Retro
+colors:
+  background: "#020506"
+  panel: "#071012"
+  foreground: "#caffdf"
+  muted: "#477766"
+  accent: "#32f58d"
+  secondary: "#55f6ec"
+  warning: "#ffb547"
+  critical: "#ff3f79"
+  sunset: "#ff8451"
+fontDisplay: "DIN Condensed, Avenir Next Condensed, ui-monospace, monospace"
+glowStrength: 0.38
+scanlineStrength: 0.10

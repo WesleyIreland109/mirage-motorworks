@@ -1,0 +1,5 @@
+/bin/
+/captures/
+/apps/dashboard/dist/
+/apps/dashboard/node_modules/
+*.log
