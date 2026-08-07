@@ -244,6 +244,8 @@ func (a *API) record(snapshot telemetry.Snapshot) {
 		return
 	}
 	snapshot.Attachment.Identity.VIN.Value = "REDACTED"
+	snapshot.GPSLatitude = telemetry.Missing("capture-redaction", snapshot.Timestamp)
+	snapshot.GPSLongitude = telemetry.Missing("capture-redaction", snapshot.Timestamp)
 	_ = json.NewEncoder(a.captureFile).Encode(snapshot)
 }
 func (a *API) websocket(w http.ResponseWriter, r *http.Request) {
