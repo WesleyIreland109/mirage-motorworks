@@ -23,3 +23,16 @@ func TestCapabilityBitmapAndPartialSupport(t *testing.T) {
 		t.Fatalf("caps=%v", caps)
 	}
 }
+func TestStandardDecoders(t *testing.T) {
+	rpm, err := DecodeStandardPID(0x0C, []byte{0x1F, 0x40})
+	if err != nil || rpm != 2000 {
+		t.Fatalf("rpm=%v err=%v", rpm, err)
+	}
+	temperature, _ := DecodeStandardPID(0x05, []byte{100})
+	if temperature != 60 {
+		t.Fatalf("temperature=%v", temperature)
+	}
+	if _, err = DecodeStandardPID(0x99, []byte{1}); err == nil {
+		t.Fatal("unknown PID accepted")
+	}
+}

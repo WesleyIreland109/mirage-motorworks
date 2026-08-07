@@ -104,19 +104,10 @@ func probeDevice(ctx context.Context, port string, provider *simulator.Simulator
 			return
 		case <-time.After(2 * time.Second):
 		}
-		pid := byte(0)
-		response, queryErr := adapter.Query(ctx, obd.Request{Service: 0x01, PID: &pid, Operation: obd.ReadOnly, Description: "supported PID discovery"})
+		supported, queryErr := obd.DiscoverSupported(ctx, adapter)
 		provider.Attachment().RecordRequest(queryErr)
 		if queryErr != nil {
 			continue
-		}
-		data := obd.HexBytes(response.Raw)
-		supported := map[byte]bool{}
-		for i := 0; i+5 < len(data); i++ {
-			if data[i] == 0x41 && data[i+1] == 0x00 {
-				supported = obd.DecodeSupportedPIDs(0, data[i+2:i+6])
-				break
-			}
 		}
 		if len(supported) == 0 {
 			continue

@@ -156,6 +156,80 @@ func Capabilities(pids map[byte]bool) map[string]Capability {
 	return out
 }
 
+func DiscoverSupported(ctx context.Context, adapter Adapter) (map[byte]bool, error) {
+	all := map[byte]bool{}
+	for _, base := range []byte{0x00, 0x20, 0x40, 0x60, 0x80, 0xA0, 0xC0} {
+		response, err := adapter.Query(ctx, Request{Service: 0x01, PID: &base, Operation: ReadOnly, Description: "supported PID block"})
+		if err != nil {
+			return all, err
+		}
+		data, found := HexBytes(response.Raw), false
+		for index := 0; index+5 < len(data); index++ {
+			if data[index] == 0x41 && data[index+1] == base {
+				for pid, yes := range DecodeSupportedPIDs(base, data[index+2:index+6]) {
+					all[pid] = yes
+				}
+				found = true
+				break
+			}
+		}
+		if !found {
+			return all, fmt.Errorf("supported PID %02X response malformed", base)
+		}
+		if !all[base+0x20] {
+			break
+		}
+	}
+	return all, nil
+}
+
+func DecodeStandardPID(pid byte, data []byte) (float64, error) {
+	if len(data) == 0 {
+		return 0, errors.New("empty PID payload")
+	}
+	a := float64(data[0])
+	b := 0.0
+	if len(data) > 1 {
+		b = float64(data[1])
+	}
+	switch pid {
+	case 0x04:
+		return a * 100 / 255, nil
+	case 0x05, 0x0F, 0x46, 0x5C:
+		return a - 40, nil
+	case 0x0A:
+		return a * 3, nil
+	case 0x0B, 0x0D:
+		return a, nil
+	case 0x0C:
+		if len(data) < 2 {
+			return 0, errors.New("RPM requires two bytes")
+		}
+		return (a*256 + b) / 4, nil
+	case 0x0E:
+		return a/2 - 64, nil
+	case 0x10:
+		if len(data) < 2 {
+			return 0, errors.New("MAF requires two bytes")
+		}
+		return (a*256 + b) / 100, nil
+	case 0x11, 0x2F, 0x49:
+		return a * 100 / 255, nil
+	case 0x42:
+		if len(data) < 2 {
+			return 0, errors.New("voltage requires two bytes")
+		}
+		return (a*256 + b) / 1000, nil
+	case 0x44:
+		if len(data) < 2 {
+			return 0, errors.New("lambda requires two bytes")
+		}
+		return (a*256 + b) * 2 / 65535, nil
+	default:
+		return 0, fmt.Errorf("no standard decoder for PID %02X", pid)
+	}
+}
+
 func DecodeVINPayload(data []byte) (string, error) {
 	clean := make([]byte, 0, len(data))
 	for _, b := range data {
