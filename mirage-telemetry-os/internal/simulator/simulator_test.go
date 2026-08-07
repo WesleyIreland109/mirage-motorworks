@@ -70,6 +70,15 @@ func TestAttachmentLifecycle(t *testing.T) {
 	if got := s.Attachment().Snapshot().State; got != "WAITING_FOR_ADAPTER" {
 		t.Fatalf("state=%s", got)
 	}
+	if err := s.Action("attach-adapter"); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Action("partial-pid-support"); err != nil {
+		t.Fatal(err)
+	}
+	if got := s.Attachment().Snapshot(); got.State != "CONNECTED" || got.SupportedMetrics >= 14 {
+		t.Fatalf("partial reconnect=%+v", got)
+	}
 }
 func TestUnavailableIsNotZero(t *testing.T) {
 	s := New(time.Second)
