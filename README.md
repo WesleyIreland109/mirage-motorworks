@@ -29,6 +29,21 @@ Then create `frontend/.env.local`:
 VITE_API_BASE_URL=http://localhost:8080/api
 ```
 
+### Create the first Garage OS account
+
+The first account is created only when the `users` table is empty. Put temporary
+bootstrap credentials in a root `.env` file before the first backend start:
+
+```dotenv
+BOOTSTRAP_ADMIN_EMAIL=you@example.com
+BOOTSTRAP_ADMIN_PASSWORD=use-a-unique-password-with-12-or-more-characters
+SESSION_COOKIE_SECURE=false
+```
+
+Run `docker compose up --build`, verify that you can sign in at `/login`, then
+remove both `BOOTSTRAP_ADMIN_*` lines and recreate the backend container. Use
+`SESSION_COOKIE_SECURE=true` when the app is served over HTTPS.
+
 ## Useful Scripts
 
 ```bash

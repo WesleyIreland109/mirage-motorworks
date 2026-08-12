@@ -1,14 +1,18 @@
 import { mockVehicles } from "@/data/mockVehicles";
 import type { Vehicle, VehicleInput } from "@/types/vehicle";
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL as string | undefined;
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? "/api";
+
+export interface AuthUser {
+  id: string;
+  email: string;
+  displayName: string;
+  role: string;
+}
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  if (!API_BASE_URL) {
-    throw new Error("API base URL is not configured");
-  }
-
   const response = await fetch(`${API_BASE_URL}${path}`, {
+    credentials: "include",
     headers: {
       "Content-Type": "application/json",
       ...init?.headers,
@@ -25,6 +29,27 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   }
 
   return response.json() as Promise<T>;
+}
+
+export async function login(email: string, password: string): Promise<AuthUser> {
+  const response = await request<{ user: AuthUser }>("/auth/login", {
+    method: "POST",
+    body: JSON.stringify({ email, password }),
+  });
+  return response.user;
+}
+
+export async function currentUser(): Promise<AuthUser | null> {
+  try {
+    const response = await request<{ user: AuthUser }>("/auth/me");
+    return response.user;
+  } catch {
+    return null;
+  }
+}
+
+export async function logout(): Promise<void> {
+  await request<void>("/auth/logout", { method: "POST" });
 }
 
 const wait = (ms = 180) => new Promise((resolve) => window.setTimeout(resolve, ms));

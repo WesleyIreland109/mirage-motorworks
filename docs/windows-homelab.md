@@ -1,0 +1,64 @@
+# Windows home-lab deployment
+
+Garage OS is served only on the Windows PC's Tailscale address at port 8088.
+PostgreSQL and the Ktor backend have no host ports and are reachable only by
+the web proxy inside Docker.
+
+## First deployment
+
+Open PowerShell and work from a normal user-owned folder, not `System32`:
+
+```powershell
+New-Item -ItemType Directory -Force C:\GarageOS | Out-Null
+Set-Location C:\GarageOS
+git clone https://github.com/WesleyIreland109/mirage-motorworks.git
+Set-Location .\mirage-motorworks
+Copy-Item .env.homelab.example .env
+notepad .env
+```
+
+Replace the two placeholder passwords and the email. Generate the database
+password locally if desired:
+
+```powershell
+$bytes = New-Object byte[] 32
+[Security.Cryptography.RandomNumberGenerator]::Fill($bytes)
+[Convert]::ToBase64String($bytes)
+```
+
+Do not paste either password into chat or commit `.env`. Start the stack:
+
+```powershell
+docker compose -f docker-compose.homelab.yml up -d --build
+docker compose -f docker-compose.homelab.yml ps
+Invoke-RestMethod http://100.71.95.123:8088/health
+```
+
+Open `http://100.71.95.123:8088/login` from a device on the same tailnet.
+
+After the first successful login, remove the `BOOTSTRAP_ADMIN_EMAIL` and
+`BOOTSTRAP_ADMIN_PASSWORD` lines from `.env`, then recreate the backend:
+
+```powershell
+docker compose -f docker-compose.homelab.yml up -d --force-recreate backend
+```
+
+The account remains in PostgreSQL. Bootstrap credentials are no longer present
+in the container configuration.
+
+## Updating
+
+```powershell
+Set-Location C:\GarageOS\mirage-motorworks
+git pull --ff-only
+docker compose -f docker-compose.homelab.yml up -d --build
+```
+
+## Logs and shutdown
+
+```powershell
+docker compose -f docker-compose.homelab.yml logs --tail 100
+docker compose -f docker-compose.homelab.yml down
+```
+
+Do not add `-v` to `down`; that would remove the PostgreSQL volume.

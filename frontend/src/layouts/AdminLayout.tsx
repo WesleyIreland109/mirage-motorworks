@@ -7,10 +7,14 @@ import {
   Receipt,
   Settings,
   Wrench,
+  LogOut,
 } from "lucide-react";
-import { Link, NavLink, Outlet } from "react-router-dom";
+import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 
 import { Logo } from "@/components/Logo";
+import { logout } from "@/api/client";
+import { Button } from "@/components/ui/button";
 
 const nav = [
   { to: "/admin", label: "Dashboard", icon: Gauge },
@@ -23,6 +27,14 @@ const nav = [
 ];
 
 export function AdminLayout() {
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+
+  async function signOut() {
+    await logout();
+    queryClient.setQueryData(["auth-user"], null);
+    navigate("/login", { replace: true });
+  }
   return (
     <div className="min-h-screen bg-mirage-bg text-white lg:grid lg:grid-cols-[280px_1fr]">
       <aside className="border-b border-mirage-border bg-mirage-secondary lg:min-h-screen lg:border-b-0 lg:border-r">
@@ -66,6 +78,7 @@ export function AdminLayout() {
           <p className="text-xs font-semibold uppercase tracking-[0.22em] text-mirage-muted">
             Garage OS
           </p>
+          <Button variant="ghost" className="ml-auto gap-2" onClick={signOut}><LogOut size={16} /> Sign out</Button>
         </div>
         <Outlet />
       </main>

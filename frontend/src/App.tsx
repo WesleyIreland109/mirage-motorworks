@@ -12,6 +12,10 @@ import { InventoryPage } from "@/pages/public/InventoryPage";
 import { JournalPage } from "@/pages/public/JournalPage";
 import { VehicleUpdatePage } from "@/pages/public/VehicleUpdatePage";
 import { VehicleDetailsPage } from "@/pages/public/VehicleDetailsPage";
+import { LoginPage } from "@/pages/admin/LoginPage";
+import { RequireAuth } from "@/components/RequireAuth";
+import { useQuery } from "@tanstack/react-query";
+import { currentUser } from "@/api/client";
 
 function HomeRoute() {
   const [searchParams] = useSearchParams();
@@ -25,6 +29,7 @@ function HomeRoute() {
 }
 
 export function App() {
+  const { data: user } = useQuery({ queryKey: ["auth-user"], queryFn: currentUser, retry: false });
   return (
     <Routes>
       <Route element={<PublicLayout />}>
@@ -36,14 +41,17 @@ export function App() {
         <Route path="journal" element={<JournalPage />} />
       </Route>
       <Route path="updates/:slug" element={<VehicleUpdatePage />} />
-      <Route path="admin" element={<AdminLayout />}>
-        <Route index element={<AdminDashboard />} />
-        <Route path="inventory" element={<AdminInventory />} />
-        <Route path="expenses" element={<PlaceholderAdminPage title="Expenses" />} />
-        <Route path="repairs" element={<PlaceholderAdminPage title="Repairs" />} />
-        <Route path="analytics" element={<PlaceholderAdminPage title="Analytics" />} />
-        <Route path="documents" element={<PlaceholderAdminPage title="Documents" />} />
-        <Route path="settings" element={<PlaceholderAdminPage title="Settings" />} />
+      <Route path="login" element={<LoginPage signedIn={Boolean(user)} />} />
+      <Route element={<RequireAuth />}>
+        <Route path="admin" element={<AdminLayout />}>
+          <Route index element={<AdminDashboard />} />
+          <Route path="inventory" element={<AdminInventory />} />
+          <Route path="expenses" element={<PlaceholderAdminPage title="Expenses" />} />
+          <Route path="repairs" element={<PlaceholderAdminPage title="Repairs" />} />
+          <Route path="analytics" element={<PlaceholderAdminPage title="Analytics" />} />
+          <Route path="documents" element={<PlaceholderAdminPage title="Documents" />} />
+          <Route path="settings" element={<PlaceholderAdminPage title="Settings" />} />
+        </Route>
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
