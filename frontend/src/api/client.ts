@@ -1,5 +1,6 @@
 import { mockVehicles } from "@/data/mockVehicles";
 import type { Vehicle, VehicleInput } from "@/types/vehicle";
+import type { FleetVehicle, FleetVehicleInput, TaskStatus } from "@/types/fleet";
 
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? "/api";
 
@@ -52,6 +53,12 @@ export async function logout(): Promise<void> {
   await request<void>("/auth/logout", { method: "POST" });
 }
 
+export async function listFleet(): Promise<FleetVehicle[]> { return request<FleetVehicle[]>("/fleet"); }
+export async function createFleetVehicle(input: FleetVehicleInput): Promise<FleetVehicle> { return request<FleetVehicle>("/fleet", { method: "POST", body: JSON.stringify(input) }); }
+export async function updateMaintenanceTask(id: string, status: TaskStatus, completedMileage?: number): Promise<FleetVehicle> {
+  return request<FleetVehicle>(`/fleet/tasks/${id}`, { method: "PUT", body: JSON.stringify({ status, completedMileage }) });
+}
+
 const wait = (ms = 180) => new Promise((resolve) => window.setTimeout(resolve, ms));
 
 export async function listVehicles(): Promise<Vehicle[]> {
@@ -59,7 +66,7 @@ export async function listVehicles(): Promise<Vehicle[]> {
     return await request<Vehicle[]>("/vehicles");
   } catch {
     await wait();
-    return mockVehicles;
+    return API_BASE_URL === "/api" ? [] : mockVehicles;
   }
 }
 
@@ -68,7 +75,7 @@ export async function getVehicle(slug: string): Promise<Vehicle | undefined> {
     return await request<Vehicle>(`/vehicles/${slug}`);
   } catch {
     await wait();
-    return mockVehicles.find((vehicle) => vehicle.slug === slug);
+    return API_BASE_URL === "/api" ? undefined : mockVehicles.find((vehicle) => vehicle.slug === slug);
   }
 }
 

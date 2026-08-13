@@ -3,7 +3,6 @@ import { Navigate, Route, Routes, useSearchParams } from "react-router-dom";
 import { AdminLayout } from "@/layouts/AdminLayout";
 import { PublicLayout } from "@/layouts/PublicLayout";
 import { AdminDashboard } from "@/pages/admin/AdminDashboard";
-import { AdminInventory } from "@/pages/admin/AdminInventory";
 import { PlaceholderAdminPage } from "@/pages/admin/PlaceholderAdminPage";
 import { AboutPage } from "@/pages/public/AboutPage";
 import { ContactPage } from "@/pages/public/ContactPage";
@@ -45,7 +44,7 @@ export function App() {
       <Route element={<RequireAuth />}>
         <Route path="admin" element={<AdminLayout />}>
           <Route index element={<AdminDashboard />} />
-          <Route path="inventory" element={<AdminInventory />} />
+          <Route path="vehicles" element={<AdminDashboard />} />
           <Route path="expenses" element={<PlaceholderAdminPage title="Expenses" />} />
           <Route path="repairs" element={<PlaceholderAdminPage title="Repairs" />} />
           <Route path="analytics" element={<PlaceholderAdminPage title="Analytics" />} />

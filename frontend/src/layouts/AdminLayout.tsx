@@ -18,7 +18,7 @@ import { Button } from "@/components/ui/button";
 
 const nav = [
   { to: "/admin", label: "Dashboard", icon: Gauge },
-  { to: "/admin/inventory", label: "Inventory", icon: Car },
+  { to: "/admin/vehicles", label: "Vehicles", icon: Car },
   { to: "/admin/expenses", label: "Expenses", icon: Receipt },
   { to: "/admin/repairs", label: "Repairs", icon: Wrench },
   { to: "/admin/analytics", label: "Analytics", icon: BarChart3 },

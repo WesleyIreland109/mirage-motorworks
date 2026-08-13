@@ -32,11 +32,11 @@ fun main() {
     auth.bootstrapAdmin(config.bootstrapAdminEmail, config.bootstrapAdminPassword)
 
     embeddedServer(Netty, port = config.port, host = "0.0.0.0") {
-        module(config, VehicleRepository(database), auth)
+        module(config, VehicleRepository(database), auth, FleetRepository(database))
     }.start(wait = true)
 }
 
-fun Application.module(config: AppConfig, vehicles: VehicleRepository, auth: AuthRepository) {
+fun Application.module(config: AppConfig, vehicles: VehicleRepository, auth: AuthRepository, fleet: FleetRepository) {
     install(CallLogging)
     install(ContentNegotiation) {
         json(
@@ -141,6 +141,25 @@ fun Application.module(config: AppConfig, vehicles: VehicleRepository, auth: Aut
                 }
             }
         }
+
+        route("/api/fleet") {
+            get {
+                val user = call.authenticatedUser(auth) ?: return@get
+                call.respond(fleet.list(user.id))
+            }
+            post {
+                val user = call.authenticatedUser(auth) ?: return@post
+                runCatching { fleet.create(user.id, call.receive<FleetVehicleInput>()) }
+                    .onSuccess { call.respond(HttpStatusCode.Created, it) }
+                    .onFailure { call.respond(HttpStatusCode.BadRequest, mapOf("message" to "Check the vehicle details and questionnaire")) }
+            }
+            put("/tasks/{id}") {
+                val user = call.authenticatedUser(auth) ?: return@put
+                val taskId = call.parameters["id"].orEmpty()
+                val vehicle = runCatching { fleet.updateTask(user.id, taskId, call.receive<TaskUpdate>()) }.getOrNull()
+                if (vehicle == null) call.respond(HttpStatusCode.NotFound, mapOf("message" to "Task not found")) else call.respond(vehicle)
+            }
+        }
     }
 }
 
@@ -150,4 +169,10 @@ private suspend fun io.ktor.server.application.ApplicationCall.requireUser(auth:
     if (auth.findUserByToken(request.cookies[SESSION_COOKIE]) != null) return true
     respond(HttpStatusCode.Unauthorized, mapOf("message" to "Authentication required"))
     return false
+}
+
+private suspend fun io.ktor.server.application.ApplicationCall.authenticatedUser(auth: AuthRepository): AuthUser? {
+    val user = auth.findUserByToken(request.cookies[SESSION_COOKIE])
+    if (user == null) respond(HttpStatusCode.Unauthorized, mapOf("message" to "Authentication required"))
+    return user
 }
