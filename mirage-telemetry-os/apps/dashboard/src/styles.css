@@ -98,6 +98,7 @@ footer span:nth-child(2){display:none}
 .tire-value span:after{content:"";position:absolute;left:0;right:0;bottom:3px;border-top:1px solid currentColor;box-shadow:0 0 4px currentColor}
 .tire-value b,.tire-value strong,.tire-value small{display:inline-block;vertical-align:baseline;margin-right:5px}
 .tire-value strong{font-size:31px}
+.tire-value small{font-size:8px}
 .tire-value i{position:absolute;width:76px;border-top:1px solid currentColor;box-shadow:0 0 4px currentColor;transform-origin:left center}
 .tire-value.lf i,.tire-value.lr i{left:calc(100% - 8px);top:calc(100% - 4px);transform:rotate(24deg)}
 .tire-value.rf i,.tire-value.rr i{right:calc(100% - 8px);top:calc(100% - 4px);transform:rotate(-24deg);transform-origin:right center}
@@ -132,6 +133,7 @@ footer span:nth-child(2){display:none}
 /* Replace the CSS tunnel with the slowed GIF on the full debug page. */
 .settings-backdrop:before{display:none}.settings-backdrop:after{background:radial-gradient(circle at center,transparent 0 8%,#00140777 48%,#000d 100%)}
 @media(max-width:800px){.tire-system{grid-template-columns:105px 145px 105px;column-gap:4px}.car-wireframe{width:140px}.tire-value{width:98px}.tire-value i{width:12px}.boot-console{padding:24px 20px}}
+.no-live-data{margin:auto;padding:28px;border:1px dashed currentColor;text-align:center;letter-spacing:.16em;font-size:12px;opacity:.7}
 
 /* Vehicle attachment console. It is driven by the same WebSocket lifecycle as real telemetry. */
 .attach-shell{min-height:100vh;display:grid;place-items:center;padding:24px;background:radial-gradient(circle at 50% 35%,#062d18 0,#010704 58%,#000 100%);color:var(--accent)}

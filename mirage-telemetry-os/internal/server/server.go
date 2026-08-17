@@ -268,11 +268,27 @@ func (a *API) websocket(w http.ResponseWriter, r *http.Request) {
 	a.wsClients.Inc()
 	a.clientsMu.Unlock()
 	defer func() { a.clientsMu.Lock(); delete(a.clients, ch); a.wsClients.Dec(); a.clientsMu.Unlock() }()
-	for snap := range ch {
-		if err := conn.WriteJSON(snap); err != nil {
-			return
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		conn.SetReadLimit(1024)
+		for {
+			if _, _, err := conn.ReadMessage(); err != nil {
+				return
+			}
 		}
-		a.wsMessages.Inc()
+	}()
+	for {
+		select {
+		case <-done:
+			return
+		case snap := <-ch:
+			_ = conn.SetWriteDeadline(time.Now().Add(2 * time.Second))
+			if err := conn.WriteJSON(snap); err != nil {
+				return
+			}
+			a.wsMessages.Inc()
+		}
 	}
 }
 func (a *API) json(w http.ResponseWriter, v any) {

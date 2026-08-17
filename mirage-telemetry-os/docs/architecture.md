@@ -20,7 +20,7 @@ The attachment snapshot is embedded in normalized telemetry snapshots, so existi
 - `internal/transport.ELMSerial`: baud rate, prompt framing, timeouts, and serial I/O.
 - `internal/obd.ELM327Adapter`: adapter identity, configurable terminal initialization, protocol detection, and safety-checked queries.
 - `internal/obd`: supported-PID bitmaps, normalized standard capability definitions, response helpers, and the OEM extension contract.
-- `internal/vehicle`: VIN validation/basic offline decoding, evidence fields with independent confidence/source, and scored profile matching.
+- `internal/vehicle`: VIN validation, offline fallback plus NHTSA vPIC decoding, evidence fields with independent confidence/source, and scored/dynamic profile matching.
 - `internal/simulator`: drives the real controller through adapter, ignition, vehicle, error, and partial-capability events before producing normalized readings.
 
 React, Prometheus, profiles, and themes never access serial devices.
@@ -31,7 +31,7 @@ Every adapter query carries an `OperationClass`. The current policy accepts only
 
 ## Identity and profiles
 
-Standard OBD does not claim make/model/trim. Mode 09 VIN evidence is decoded locally for format, WMI manufacturer, and model-year data. Missing fields stay `UNKNOWN`. Profile matching requires scored make/model/generation evidence: an unknown Honda cannot select FK8. The generic profile is the safe fallback. Identity, profile, dashboard OS name, layout, theme, and client branding remain separate.
+Standard OBD does not claim make/model/trim. VIN evidence is validated locally and, when Internet access is available, resolved through the official NHTSA vPIC service. The local WMI/year decoder remains the offline fallback. Missing fields stay `UNKNOWN`; an unknown Honda cannot select FK8. Exact profiles still require specific evidence, while a decoded but previously unknown model receives a capability-driven model-named profile. Identity, profile, dashboard OS name, layout, theme, and client branding remain separate.
 
 ## Availability and capture
 

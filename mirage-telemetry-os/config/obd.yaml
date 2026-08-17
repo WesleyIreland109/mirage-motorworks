@@ -2,6 +2,8 @@ autoDiscovery: true
 preferredAdapter: auto
 preferredPort: auto
 baudRate: 115200
+connectionTimeoutSeconds: 12
+liveTimeoutSeconds: 2
 # Conservative ELM terminal setup only. ATSP0 requests automatic protocol
 # selection; none of these commands writes to a vehicle ECU.
 initialization:
@@ -10,6 +12,9 @@ initialization:
   - ATL0  # disable line feeds
   - ATS0  # disable spaces
   - ATH0  # hide CAN headers for standard decoding
-  - ATSP0 # automatically detect OBD protocol
-# Populate after inspecting the physical Vgate USB VID/PID.
-knownUSBIDs: []
+  # Vehicle-neutral discovery: let the adapter identify the active OBD protocol.
+  # A resolved vehicle profile may later supply a known protocol as an optimization.
+  - ATSP0
+# Observed from the physical Vgate vLinker FS on macOS (FTDI FT-X bridge).
+knownUSBIDs:
+  - "0403:6015"

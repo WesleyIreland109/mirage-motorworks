@@ -10,6 +10,7 @@ import (
 	"time"
 
 	serial "go.bug.st/serial"
+	"go.bug.st/serial/enumerator"
 )
 
 type EventType string
@@ -64,7 +65,20 @@ func (d *PollingDiscovery) Candidates(context.Context) ([]Device, error) {
 	if d.preferredPort != "" && d.preferredPort != "auto" {
 		return []Device{{Port: d.preferredPort, Platform: runtime.GOOS}}, nil
 	}
-	patterns := map[string][]string{"linux": {"/dev/ttyUSB*", "/dev/ttyACM*", "/dev/serial/by-id/*"}, "darwin": {"/dev/cu.usbserial-*", "/dev/cu.usbmodem*"}}[runtime.GOOS]
+	if details, err := enumerator.GetDetailedPortsList(); err == nil {
+		out := make([]Device, 0, len(details))
+		for _, port := range details {
+			if !port.IsUSB {
+				continue
+			}
+			out = append(out, Device{Port: port.Name, VID: strings.ToUpper(port.VID), PID: strings.ToUpper(port.PID), Serial: port.SerialNumber, Platform: runtime.GOOS})
+		}
+		sort.Slice(out, func(i, j int) bool { return out[i].Port < out[j].Port })
+		if len(out) > 0 {
+			return out, nil
+		}
+	}
+	patterns := map[string][]string{"linux": {"/dev/ttyUSB*", "/dev/ttyACM*", "/dev/serial/by-id/*"}, "darwin": {"/dev/cu.usbserial*", "/dev/cu.usbmodem*", "/dev/cu.wchusbserial*", "/dev/cu.SLAB_USBtoUART*"}}[runtime.GOOS]
 	ports := []string{}
 	if runtime.GOOS == "windows" {
 		all, err := serial.GetPortsList()

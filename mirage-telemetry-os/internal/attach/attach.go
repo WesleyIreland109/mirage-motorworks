@@ -90,6 +90,19 @@ func (c *Controller) AttachAdapter(port string) {
 	c.mu.Unlock()
 	c.Transition(WaitingForVehicle, "Adapter ready; waiting for ECU")
 }
+func (c *Controller) SetAdapterInfo(info obd.AdapterInfo) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if info.Name != "" {
+		c.snapshot.Adapter.Name = info.Name
+	}
+	if info.Version != "" {
+		c.snapshot.Adapter.Version = info.Version
+	}
+	if info.Port != "" {
+		c.snapshot.Adapter.Port = info.Port
+	}
+}
 func (c *Controller) RemoveAdapter() {
 	c.Transition(AdapterRemoved, "OBD adapter removed")
 	c.mu.Lock()
@@ -128,10 +141,14 @@ func (c *Controller) ConnectEvidence(evidence vehicle.Evidence, pids map[byte]bo
 	c.snapshot.Adapter.Protocol = protocol
 	c.mu.Unlock()
 	identity := vehicle.BasicIdentifier{Decoder: vehicle.BasicVINDecoder{}}.Identify(nil, evidence)
-	c.Transition(DiscoveringCapabilities, "Discovering supported Mode 01 PIDs")
+	c.Transition(DiscoveringCapabilities, "Discovering supported telemetry channels")
 	caps := obd.Capabilities(pids)
 	count := 0
-	for _, cap := range caps {
+	for name, cap := range caps {
+		if evidence.TelemetrySource != "" {
+			cap.Source = evidence.TelemetrySource
+			caps[name] = cap
+		}
 		if cap.Available {
 			count++
 		}

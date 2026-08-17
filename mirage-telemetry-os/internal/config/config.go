@@ -55,12 +55,14 @@ type Client struct {
 	Logo        string `yaml:"logo" json:"logo"`
 }
 type OBD struct {
-	AutoDiscovery    bool     `yaml:"autoDiscovery" json:"autoDiscovery"`
-	PreferredAdapter string   `yaml:"preferredAdapter" json:"preferredAdapter"`
-	PreferredPort    string   `yaml:"preferredPort" json:"preferredPort"`
-	BaudRate         int      `yaml:"baudRate" json:"baudRate"`
-	Initialization   []string `yaml:"initialization" json:"initialization"`
-	KnownUSBIDs      []string `yaml:"knownUSBIDs" json:"knownUSBIDs"`
+	AutoDiscovery         bool     `yaml:"autoDiscovery" json:"autoDiscovery"`
+	PreferredAdapter      string   `yaml:"preferredAdapter" json:"preferredAdapter"`
+	PreferredPort         string   `yaml:"preferredPort" json:"preferredPort"`
+	BaudRate              int      `yaml:"baudRate" json:"baudRate"`
+	ConnectionTimeoutSecs int      `yaml:"connectionTimeoutSeconds" json:"connectionTimeoutSeconds"`
+	LiveTimeoutSecs       int      `yaml:"liveTimeoutSeconds" json:"liveTimeoutSeconds"`
+	Initialization        []string `yaml:"initialization" json:"initialization"`
+	KnownUSBIDs           []string `yaml:"knownUSBIDs" json:"knownUSBIDs"`
 }
 type Active struct {
 	Vehicle Vehicle `json:"vehicle"`
@@ -92,6 +94,12 @@ func Load(root, vehicle, theme, client string) (Active, error) {
 	}
 	if out.Theme.ID == "" || out.Client.ID == "" {
 		return out, fmt.Errorf("theme and client id fields must be non-empty")
+	}
+	if out.OBD.ConnectionTimeoutSecs <= 0 {
+		out.OBD.ConnectionTimeoutSecs = 12
+	}
+	if out.OBD.LiveTimeoutSecs <= 0 {
+		out.OBD.LiveTimeoutSecs = 2
 	}
 	return out, nil
 }

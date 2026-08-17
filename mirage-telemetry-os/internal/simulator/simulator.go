@@ -23,12 +23,35 @@ type Simulator struct {
 	started    bool
 	phase      float64
 	attachment *attach.Controller
+	live       bool
 }
 
 func New(interval time.Duration) *Simulator {
 	return &Simulator{interval: interval, scenario: "ignition-off", connected: false, readings: make(chan telemetry.Snapshot, 4), attachment: attach.NewController()}
 }
 func (s *Simulator) Attachment() *attach.Controller { return s.attachment }
+
+// SetLive suspends generated samples while a hardware provider owns the stream.
+// The simulator remains available as the fallback development provider.
+func (s *Simulator) SetLive(live bool) {
+	s.mu.Lock()
+	s.live = live
+	s.mu.Unlock()
+}
+func (s *Simulator) PublishLive(snapshot telemetry.Snapshot) {
+	s.mu.RLock()
+	live := s.live
+	s.mu.RUnlock()
+	if !live {
+		return
+	}
+	select {
+	case s.readings <- snapshot:
+	default:
+		<-s.readings
+		s.readings <- snapshot
+	}
+}
 func (s *Simulator) Action(action string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -141,6 +164,12 @@ func (s *Simulator) run(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case now := <-ticker.C:
+			s.mu.RLock()
+			live := s.live
+			s.mu.RUnlock()
+			if live {
+				continue
+			}
 			snap := s.next(now)
 			select {
 			case s.readings <- snap:

@@ -2,10 +2,14 @@ package vehicle
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
+	"net/url"
 	"regexp"
 	"strings"
+	"time"
 )
 
 type Confidence string
@@ -38,13 +42,14 @@ type Identity struct {
 
 type Evidence struct {
 	VIN, Protocol, ManufacturerHint, ModelHint, GenerationHint, TrimHint string
+	TelemetrySource                                                      string
 	ModelYearHint                                                        int
 	SupportedPIDs                                                        map[string]bool
 }
 
 type DecodedVIN struct {
-	VIN, WMI, Manufacturer string
-	ModelYear              int
+	VIN, WMI, Manufacturer, Make, Model, Trim, Engine string
+	ModelYear                                         int
 }
 
 type VINDecoder interface {
@@ -56,6 +61,11 @@ type VehicleIdentifier interface {
 }
 
 type BasicVINDecoder struct{}
+
+type VPICVINDecoder struct {
+	Client  *http.Client
+	BaseURL string
+}
 
 var vinPattern = regexp.MustCompile(`^[A-HJ-NPR-Z0-9]{17}$`)
 
@@ -72,7 +82,7 @@ func (BasicVINDecoder) Decode(_ context.Context, raw string) (DecodedVIN, error)
 		return DecodedVIN{}, err
 	}
 	wmi := vin[:3]
-	manufacturers := map[string]string{"JHM": "Honda", "SHH": "Honda", "1HG": "Honda", "2HG": "Honda", "19X": "Honda", "1FM": "Ford", "1FA": "Ford", "3FA": "Ford"}
+	manufacturers := map[string]string{"JHM": "Honda", "SHH": "Honda", "1HG": "Honda", "2HG": "Honda", "19X": "Honda", "3CZ": "Honda", "1FM": "Ford", "1FA": "Ford", "3FA": "Ford", "1V2": "Volkswagen"}
 	yearCodes := "ABCDEFGHJKLMNPRSTVWXY123456789"
 	year := 0
 	if index := strings.IndexByte(yearCodes, vin[9]); index >= 0 {
@@ -82,6 +92,55 @@ func (BasicVINDecoder) Decode(_ context.Context, raw string) (DecodedVIN, error)
 		}
 	}
 	return DecodedVIN{VIN: vin, WMI: wmi, Manufacturer: manufacturers[wmi], ModelYear: year}, nil
+}
+
+func (d VPICVINDecoder) Decode(ctx context.Context, raw string) (DecodedVIN, error) {
+	vin := strings.ToUpper(strings.TrimSpace(raw))
+	if err := ValidateVIN(vin); err != nil {
+		return DecodedVIN{}, err
+	}
+	baseURL := strings.TrimRight(d.BaseURL, "/")
+	if baseURL == "" {
+		baseURL = "https://vpic.nhtsa.dot.gov/api/vehicles"
+	}
+	client := d.Client
+	if client == nil {
+		client = &http.Client{Timeout: 4 * time.Second}
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, baseURL+"/DecodeVinValuesExtended/"+url.PathEscape(vin)+"?format=json", nil)
+	if err != nil {
+		return DecodedVIN{}, err
+	}
+	response, err := client.Do(req)
+	if err != nil {
+		return DecodedVIN{}, err
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		return DecodedVIN{}, fmt.Errorf("vPIC returned %s", response.Status)
+	}
+	var payload struct {
+		Results []struct {
+			VIN, Manufacturer, Make, Model, ModelYear, Trim, Series, EngineModel, ErrorCode string
+		} `json:"Results"`
+	}
+	if err := json.NewDecoder(response.Body).Decode(&payload); err != nil {
+		return DecodedVIN{}, err
+	}
+	if len(payload.Results) == 0 {
+		return DecodedVIN{}, errors.New("vPIC returned no VIN result")
+	}
+	result := payload.Results[0]
+	if result.Make == "" && result.Manufacturer == "" {
+		return DecodedVIN{}, fmt.Errorf("vPIC could not decode VIN (error code %s)", result.ErrorCode)
+	}
+	trim := result.Trim
+	if trim == "" {
+		trim = result.Series
+	}
+	var year int
+	_, _ = fmt.Sscan(result.ModelYear, &year)
+	return DecodedVIN{VIN: vin, WMI: vin[:3], Manufacturer: result.Manufacturer, Make: result.Make, Model: result.Model, Trim: trim, Engine: result.EngineModel, ModelYear: year}, nil
 }
 
 type BasicIdentifier struct{ Decoder VINDecoder }
@@ -95,8 +154,21 @@ func (b BasicIdentifier) Identify(ctx context.Context, e Evidence) Identity {
 	if decoded, err := b.Decoder.Decode(ctx, e.VIN); err == nil {
 		out.VIN = Field{Value: decoded.VIN, Confidence: 1, Source: "obd2-mode09"}
 		if decoded.Manufacturer != "" {
-			out.Manufacturer = Field{Value: decoded.Manufacturer, Confidence: 1, Source: "vin-wmi"}
+			out.Manufacturer = Field{Value: decoded.Manufacturer, Confidence: 1, Source: "vin-decoder"}
+		}
+		if decoded.Make != "" {
+			out.Make = Field{Value: decoded.Make, Confidence: 1, Source: "vin-decoder"}
+		} else if decoded.Manufacturer != "" {
 			out.Make = out.Manufacturer
+		}
+		if decoded.Model != "" {
+			out.Model = Field{Value: decoded.Model, Confidence: .95, Source: "vin-decoder"}
+		}
+		if decoded.Trim != "" {
+			out.Trim = Field{Value: decoded.Trim, Confidence: .9, Source: "vin-decoder"}
+		}
+		if decoded.Engine != "" {
+			out.Engine = Field{Value: decoded.Engine, Confidence: .9, Source: "vin-decoder"}
 		}
 		if decoded.ModelYear != 0 {
 			out.ModelYear = Field{Value: fmt.Sprint(decoded.ModelYear), Confidence: .9, Source: "vin-year-code"}
@@ -170,6 +242,11 @@ func MatchProfile(identity Identity) ProfileMatch {
 		if score > best.Score && score >= .7 {
 			best = ProfileMatch{ProfileID: candidate.id, OSName: candidate.os, Score: score, Confidence: ConfidenceHigh, Evidence: evidence}
 		}
+	}
+	if best.ProfileID == "generic" && model != "" && model != "unknown" {
+		modelName := strings.ToUpper(identity.Model.Value)
+		profileID := strings.Trim(strings.ToLower(regexp.MustCompile(`[^a-zA-Z0-9]+`).ReplaceAllString(identity.Model.Value, "-")), "-")
+		best = ProfileMatch{ProfileID: profileID, OSName: modelName + " OS", Score: .6, Confidence: ConfidenceMedium, Evidence: []string{identity.Make.Value, identity.Model.Value}}
 	}
 	return best
 }

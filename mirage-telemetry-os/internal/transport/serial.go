@@ -24,6 +24,11 @@ type ELMSerial struct {
 func NewELMSerial(port string, baud int, timeout time.Duration) *ELMSerial {
 	return &ELMSerial{Port: port, Baud: baud, Timeout: timeout}
 }
+func (s *ELMSerial) SetTimeout(timeout time.Duration) {
+	s.mu.Lock()
+	s.Timeout = timeout
+	s.mu.Unlock()
+}
 func (s *ELMSerial) Open(context.Context) error {
 	device, err := serial.Open(s.Port, &serial.Mode{BaudRate: s.Baud, DataBits: 8, Parity: serial.NoParity, StopBits: serial.OneStopBit})
 	if err != nil {
@@ -70,6 +75,55 @@ func (s *ELMSerial) Exchange(ctx context.Context, command string) ([]string, err
 		}
 	}
 	return nil, fmt.Errorf("serial response timeout after %s", s.Timeout)
+}
+
+// Monitor listens passively for adapter output for the requested duration.
+// It is intended for ELM monitor commands such as ATMA, which do not return a
+// prompt until interrupted. A space asks the adapter to stop monitoring.
+func (s *ELMSerial) Monitor(ctx context.Context, command string, duration time.Duration) ([]string, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.device == nil {
+		return nil, fmt.Errorf("serial port is not open")
+	}
+	s.LastCommand = command
+	if _, err := s.device.Write([]byte(command + "\r")); err != nil {
+		return nil, err
+	}
+	deadline := time.Now().Add(duration)
+	var response bytes.Buffer
+	buffer := make([]byte, 1024)
+	for time.Now().Before(deadline) {
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		default:
+		}
+		n, err := s.device.Read(buffer)
+		if n > 0 {
+			response.Write(buffer[:n])
+		}
+		if err != nil {
+			return nil, err
+		}
+	}
+	if _, err := s.device.Write([]byte(" ")); err != nil {
+		return nil, err
+	}
+	stopDeadline := time.Now().Add(time.Second)
+	for time.Now().Before(stopDeadline) {
+		n, err := s.device.Read(buffer)
+		if n > 0 {
+			response.Write(buffer[:n])
+			if bytes.Contains(response.Bytes(), []byte(">")) {
+				break
+			}
+		}
+		if err != nil {
+			return nil, err
+		}
+	}
+	return cleanLines(response.String(), command), nil
 }
 func cleanLines(raw, command string) []string {
 	raw = strings.ReplaceAll(raw, ">", "")

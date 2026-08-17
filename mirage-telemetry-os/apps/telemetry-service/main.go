@@ -3,15 +3,19 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
+	"github.com/mirage-motorworks/telemetry-os/internal/attach"
 	"github.com/mirage-motorworks/telemetry-os/internal/config"
 	"github.com/mirage-motorworks/telemetry-os/internal/discovery"
+	"github.com/mirage-motorworks/telemetry-os/internal/liveobd"
 	"github.com/mirage-motorworks/telemetry-os/internal/obd"
 	"github.com/mirage-motorworks/telemetry-os/internal/server"
 	"github.com/mirage-motorworks/telemetry-os/internal/simulator"
@@ -72,6 +76,7 @@ func watchDevices(ctx context.Context, discoverer discovery.DeviceDiscovery, pro
 			return
 		case event := <-discoverer.Events():
 			if event.Type == discovery.DeviceRemoved {
+				provider.SetLive(false)
 				provider.Attachment().RemoveAdapter()
 				continue
 			}
@@ -80,50 +85,147 @@ func watchDevices(ctx context.Context, discoverer discovery.DeviceDiscovery, pro
 	}
 }
 func probeDevice(ctx context.Context, port string, provider *simulator.Simulator, cfg config.Active) {
-	serialTransport := transport.NewELMSerial(port, cfg.OBD.BaudRate, 2*time.Second)
+	log.Printf("OBD USB // candidate detected // port=%s baud=%d", port, cfg.OBD.BaudRate)
+	serialTransport := transport.NewELMSerial(port, cfg.OBD.BaudRate, time.Duration(cfg.OBD.ConnectionTimeoutSecs)*time.Second)
 	adapter := obd.NewELM327Adapter(serialTransport, port, cfg.OBD.Initialization)
 	probeCtx, cancel := context.WithTimeout(ctx, 12*time.Second)
 	defer cancel()
 	if err := adapter.Open(probeCtx); err != nil {
+		log.Printf("OBD USB // open failed // port=%s error=%v", port, err)
 		return
 	}
+	log.Printf("OBD USB // serial port open // port=%s", port)
 	defer adapter.Close()
+	if err := adapter.Initialize(probeCtx); err != nil {
+		provider.Attachment().Fail("adapter initialization failed: " + err.Error())
+		log.Printf("OBD ADAPTER // initialization failed // error=%v", err)
+		return
+	}
+	log.Printf("OBD ADAPTER // initialized // commands=%s", strings.Join(cfg.OBD.Initialization, ","))
 	info, err := adapter.Identify(probeCtx)
 	if err != nil {
+		log.Printf("OBD ADAPTER // identity probe failed // error=%v", err)
 		return
 	}
-	if err = adapter.Initialize(probeCtx); err != nil {
-		provider.Attachment().Fail("adapter initialization failed: " + err.Error())
-		return
-	}
+	log.Printf("OBD ADAPTER // ATI response // %s", info.Version)
 	provider.Attachment().AttachAdapter(port)
+	provider.Attachment().SetAdapterInfo(info)
 	log.Printf("ADAPTER READY // %s // %s", info.Version, port)
+	attempt := 0
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case <-time.After(2 * time.Second):
 		}
+		attempt++
+		provider.Attachment().Transition(attach.NegotiatingProtocol, fmt.Sprintf("ECU probe attempt %d: requesting supported PIDs", attempt))
+		for _, command := range []string{"ATSP0", "ATCAF1", "ATH0"} {
+			if _, resetErr := serialTransport.Exchange(ctx, command); resetErr != nil {
+				log.Printf("OBD ECU PROBE // attempt=%d // adapter setup %s failed // error=%v", attempt, command, resetErr)
+			}
+		}
+		voltageLines, voltageErr := serialTransport.Exchange(ctx, "ATRV")
+		if voltageErr != nil {
+			log.Printf("OBD ECU PROBE // attempt=%d // adapter voltage unavailable // error=%v", attempt, voltageErr)
+		} else {
+			log.Printf("OBD ECU PROBE // attempt=%d // adapter voltage=%s", attempt, strings.Join(voltageLines, " "))
+		}
+		protocolBefore, protocolBeforeErr := adapter.DetectProtocol(ctx)
+		if protocolBeforeErr != nil {
+			log.Printf("OBD ECU PROBE // attempt=%d // protocol query failed // error=%v", attempt, protocolBeforeErr)
+		} else {
+			log.Printf("OBD ECU PROBE // attempt=%d // protocol=%s // sending Mode 01 PID 00", attempt, protocolBefore.Name)
+		}
+		mode := liveobd.ModeLegacy
 		supported, queryErr := obd.DiscoverSupported(ctx, adapter)
 		provider.Attachment().RecordRequest(queryErr)
 		if queryErr != nil {
-			continue
+			log.Printf("OBD ECU PROBE // attempt=%d // legacy OBD unavailable // trying SAE J1979-2 // error=%v", attempt, queryErr)
+			provider.Attachment().Transition(attach.NegotiatingProtocol, fmt.Sprintf("ECU probe attempt %d: trying OBD-on-UDS", attempt))
+			var setupErr error
+			for _, command := range []string{"ATSP7", "ATCAF1", "ATH0", "ATSH18DB33F1"} {
+				if _, err := serialTransport.Exchange(ctx, command); err != nil {
+					setupErr = fmt.Errorf("%s: %w", command, err)
+					break
+				}
+			}
+			if setupErr == nil {
+				supported, queryErr = obd.DiscoverSupportedUDS(ctx, adapter)
+				provider.Attachment().RecordRequest(queryErr)
+				mode = liveobd.ModeUDS
+			} else {
+				queryErr = setupErr
+			}
+			if queryErr != nil {
+				message := fmt.Sprintf("ECU probe %d failed for legacy OBD and OBD-on-UDS: %v", attempt, queryErr)
+				provider.Attachment().Transition(attach.WaitingForVehicle, message)
+				log.Printf("OBD ECU PROBE // attempt=%d // no vehicle response // error=%v", attempt, queryErr)
+				continue
+			}
 		}
 		if len(supported) == 0 {
+			provider.Attachment().Transition(attach.WaitingForVehicle, fmt.Sprintf("ECU probe %d returned no supported PIDs", attempt))
+			log.Printf("OBD ECU PROBE // attempt=%d // response decoded but no PIDs were advertised", attempt)
 			continue
 		}
-		vinPID := byte(0x02)
-		vinResponse, vinErr := adapter.Query(ctx, obd.Request{Service: 0x09, PID: &vinPID, Operation: obd.ReadOnly, Description: "VIN"})
+		log.Printf("OBD ECU DETECTED // attempt=%d // supported-pids=%d", attempt, len(supported))
+		provider.Attachment().Transition(attach.IdentifyingVehicle, "ECU responded; reading standardized VIN")
+		var vinResponse obd.Response
+		var vinErr error
+		if mode == liveobd.ModeUDS {
+			vinResponse, vinErr = adapter.Query(ctx, obd.Request{Service: 0x22, Parameters: []byte{0xF8, 0x02}, Operation: obd.ReadOnly, Description: "OBD-on-UDS VIN"})
+		} else {
+			vinPID := byte(0x02)
+			vinResponse, vinErr = adapter.Query(ctx, obd.Request{Service: 0x09, PID: &vinPID, Operation: obd.ReadOnly, Description: "VIN"})
+		}
 		provider.Attachment().RecordRequest(vinErr)
 		vin := ""
 		if vinErr == nil {
-			vin, _ = obd.DecodeVINPayload(obd.HexBytes(vinResponse.Raw))
+			if mode == liveobd.ModeUDS {
+				vin, vinErr = obd.DecodeUDSVINResponse(vinResponse.Raw)
+			} else {
+				vin, vinErr = obd.DecodeVINResponse(vinResponse.Raw)
+			}
+		}
+		if vinErr != nil {
+			log.Printf("OBD VIN // unavailable // error=%v // continuing with configured profile evidence", vinErr)
+		} else {
+			log.Printf("OBD VIN // received and validated // characters=%d", len(vin))
 		}
 		protocol, protocolErr := adapter.DetectProtocol(ctx)
 		if protocolErr != nil {
 			protocol.Name = "UNKNOWN"
 		}
-		_ = provider.Attachment().ConnectEvidence(vehicle.Evidence{VIN: vin, Protocol: protocol.Name, SupportedPIDs: map[string]bool{}}, supported, protocol.Name)
+		log.Printf("OBD ECU // negotiated protocol=%s // telemetry mode=%s", protocol.Name, mode)
+		evidence := vehicle.Evidence{VIN: vin, Protocol: protocol.Name, SupportedPIDs: map[string]bool{}}
+		if mode == liveobd.ModeUDS {
+			evidence.TelemetrySource = "obd-on-uds"
+			protocol.Name += " / SAE J1979-2"
+			evidence.Protocol = protocol.Name
+		}
+		if decoded, decodeErr := (vehicle.VPICVINDecoder{}).Decode(ctx, vin); decodeErr == nil {
+			evidence.ManufacturerHint = decoded.Manufacturer
+			if evidence.ManufacturerHint == "" {
+				evidence.ManufacturerHint = decoded.Make
+			}
+			evidence.ModelHint = decoded.Model
+			evidence.TrimHint = decoded.Trim
+			evidence.ModelYearHint = decoded.ModelYear
+			log.Printf("OBD VIN PROFILE // make=%s model=%s year=%d", decoded.Make, decoded.Model, decoded.ModelYear)
+		} else {
+			log.Printf("OBD VIN PROFILE // online decode unavailable // %v", decodeErr)
+		}
+		_ = provider.Attachment().ConnectEvidence(evidence, supported, protocol.Name)
+		provider.SetLive(true)
+		serialTransport.SetTimeout(time.Duration(cfg.OBD.LiveTimeoutSecs) * time.Second)
+		log.Printf("LIVE OBD TELEMETRY // %d supported metrics // capture with: bin/mirage capture start", provider.Attachment().Snapshot().SupportedMetrics)
+		poller := liveobd.Poller{Adapter: adapter, Attachment: provider.Attachment(), Publish: provider.PublishLive, Interval: 50 * time.Millisecond, Mode: mode}
+		if pollErr := poller.Run(ctx, supported); pollErr != nil && ctx.Err() == nil {
+			provider.SetLive(false)
+			provider.Attachment().IgnitionOff()
+			log.Printf("LIVE OBD TELEMETRY STOPPED // %v", pollErr)
+		}
 		return
 	}
 }
