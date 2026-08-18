@@ -140,3 +140,80 @@ footer span:nth-child(2){display:none}
 .attach-console{width:min(900px,100%);margin:0;border:1px solid currentColor;background:#010b06e8;padding:28px;box-shadow:0 0 0 5px #001d0c,0 0 55px #19f06b38,inset 0 0 45px #00552238}
 .attach-mark{width:48px;height:48px;display:grid;place-items:center;border:1px solid currentColor;font-size:28px;box-shadow:0 0 15px currentColor}.attach-console>p{margin:12px 0 3px;letter-spacing:.22em;font-size:11px}.attach-console h1{margin:0 0 22px;font-size:28px;letter-spacing:.18em}.attach-state{border-block:1px solid currentColor;padding:12px 4px;font-size:21px;letter-spacing:.2em;text-shadow:0 0 9px currentColor}.attach-message{color:var(--muted);min-height:18px}.attach-lines{margin:18px 0}.attach-lines>div{display:flex;justify-content:space-between;gap:20px;padding:7px 4px;border-bottom:1px dotted #1c5933;font-size:11px;letter-spacing:.12em}.attach-lines b{text-align:right}.vehicle-acquired{display:flex;flex-wrap:wrap;justify-content:space-between;gap:10px;border:1px solid currentColor;padding:13px;margin:14px 0}.vehicle-acquired strong{font-size:17px}.vehicle-acquired span,.vehicle-acquired small{color:var(--muted)}.capability-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px 20px;margin:12px 0}.capability-grid span{display:flex;justify-content:space-between;border-bottom:1px dotted #174829;padding:5px;font-size:9px;text-transform:uppercase}.capability-grid .no{color:#6f765a}.dev-actions{display:flex;flex-wrap:wrap;gap:6px;margin-top:18px}.dev-actions button{background:#03140a;color:var(--accent);border:1px solid #24633a;padding:7px 9px;font:inherit;font-size:9px;letter-spacing:.08em;cursor:pointer}.dev-actions button:hover{background:var(--accent);color:#001407}.attach-console footer{margin-top:18px;padding-top:10px;border-top:1px solid currentColor;font-size:9px}
 @media(max-width:650px){.attach-shell{padding:8px}.attach-console{padding:18px}.attach-console h1{font-size:20px}.capability-grid{grid-template-columns:1fr}}
+
+/* Static vehicle-identification splash artwork with a legible foreground. */
+.boot{
+  position:relative;
+  background:#01050a url('/assets/retro-horizon.jpg') center/cover no-repeat;
+}
+.boot-shade{
+  background:linear-gradient(180deg,#0008 0,#000b 54%,#000e 100%),radial-gradient(circle at center,#00102c22 0,#0009 72%,#000 100%);
+}
+.boot-console{
+  background:#010919eb;
+  backdrop-filter:blur(1.5px);
+}
+.boot-console .vehicle-id{
+  display:flex;
+  justify-content:center;
+  align-items:baseline;
+  width:100%;
+  white-space:nowrap;
+}
+.boot-console .model-blank{
+  display:inline-block;
+  min-width:4.6em;
+  min-height:1.1em;
+  padding:0 .08em .08em;
+  border-bottom:4px solid currentColor;
+  line-height:1;
+}
+.boot-console .os-suffix{margin-left:.12em}
+
+/* Performance display: reserve separate rows for labels, values, and units. */
+.dashboard>section{padding:14px 18px}
+.rpm .eyebrow,.metric>span,.speed>span,.gear>span{
+  position:relative;
+  z-index:2;
+  color:#b8d6d5;
+  font-weight:700;
+  text-shadow:0 1px 2px #000;
+}
+.speed,.gear{
+  display:grid;
+  grid-template-rows:auto minmax(0,1fr) auto;
+  align-items:center;
+  justify-items:center;
+  gap:7px;
+  padding-block:15px;
+}
+.speed>span,.gear>span{align-self:start;width:100%;text-align:left}
+.speed strong{
+  align-self:center;
+  font-size:clamp(58px,8vw,112px);
+  line-height:1;
+}
+.speed small{margin-top:0;color:#8efaff;font-weight:700}
+.gear strong{align-self:center;font-size:clamp(58px,7vw,94px);line-height:1}
+.gear small{color:#d98baa;font-weight:700}
+.metric{
+  display:grid;
+  grid-template-columns:1fr;
+  grid-template-rows:auto minmax(0,1fr) auto;
+  align-items:center;
+  gap:6px;
+}
+.metric>span,.metric strong,.metric small{grid-column:1;width:100%}
+.metric>span{align-self:start}
+.metric strong{align-self:center;text-align:center;line-height:1}
+.metric small{align-self:end;text-align:center;color:#8dcfaa;font-weight:700}
+.rpm>strong{line-height:.95;margin-top:5px}
+.scale{color:#91acab;font-weight:700}
+
+@media(max-width:800px){
+  .dashboard>section{padding:11px 13px}
+  .speed,.gear{min-height:150px}
+  .speed strong{font-size:clamp(54px,14vw,92px)}
+  .metric strong{font-size:clamp(38px,9vw,58px)}
+  .rpm>strong{font-size:clamp(58px,15vw,96px)}
+}
