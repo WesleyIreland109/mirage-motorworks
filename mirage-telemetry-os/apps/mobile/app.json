@@ -1,0 +1,48 @@
+{
+  "expo": {
+    "name": "Mirage Telemetry",
+    "slug": "mirage-telemetry",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "scheme": "miragetelemetry",
+    "userInterfaceStyle": "dark",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.miragemotorworks.telemetry",
+      "infoPlist": {
+        "NSLocalNetworkUsageDescription": "Mirage connects to your telemetry display over your private local network.",
+        "NSBonjourServices": [
+          "_http._tcp"
+        ],
+        "NSAppTransportSecurity": {
+          "NSAllowsLocalNetworking": true
+        }
+      }
+    },
+    "android": {
+      "package": "com.miragemotorworks.telemetry",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/icon.png",
+        "backgroundColor": "#020806"
+      }
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "static",
+      "favicon": "./assets/icon.png"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      ["expo-splash-screen", { "image": "./assets/splash.png", "imageWidth": 240, "resizeMode": "contain", "backgroundColor": "#020806" }],
+      ["expo-build-properties", { "android": { "usesCleartextTraffic": true } }]
+    ],
+    "experiments": {
+      "typedRoutes": true
+    },
+    "extra": {
+      "router": {}
+    }
+  }
+}

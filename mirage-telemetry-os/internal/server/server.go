@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -145,7 +146,11 @@ func (a *API) Handler() http.Handler {
 		a.json(w, map[string]any{"name": "Mirage Telemetry OS", "version": "0.1.0", "offlineReady": true, "features": []string{"vehicle-identity", "live-telemetry", "sessions", "replay", "offline-vin-cache", "local-vpic"}})
 	})
 	m.HandleFunc("/api/mobile/bootstrap", func(w http.ResponseWriter, r *http.Request) {
-		a.json(w, map[string]any{"device": map[string]any{"name": "Mirage Telemetry OS", "version": "0.1.0"}, "vehicle": a.provider.Attachment().Snapshot(), "session": a.sessions.Status(), "config": a.cfg})
+		vehicle := a.provider.Attachment().Snapshot()
+		if vin := vehicle.Identity.VIN.Value; len(vin) > 4 {
+			vehicle.Identity.VIN.Value = "REDACTED-" + vin[len(vin)-4:]
+		}
+		a.json(w, map[string]any{"device": map[string]any{"name": "Mirage Telemetry OS", "version": "0.1.0"}, "vehicle": vehicle, "session": a.sessions.Status(), "config": a.cfg})
 	})
 	m.HandleFunc("/api/config/active", func(w http.ResponseWriter, r *http.Request) { a.json(w, a.cfg) })
 	m.HandleFunc("/api/telemetry/current", func(w http.ResponseWriter, r *http.Request) {
@@ -330,7 +335,7 @@ func (a *API) websocket(w http.ResponseWriter, r *http.Request) {
 			return true
 		}
 		u, err := url.Parse(origin)
-		return err == nil && (u.Host == r.Host || u.Host == "localhost:5173" || u.Host == "127.0.0.1:5173")
+		return err == nil && localOrigin(u, r.Host)
 	}}
 	conn, err := up.Upgrade(w, r, nil)
 	if err != nil {
@@ -372,7 +377,12 @@ func (a *API) json(w http.ResponseWriter, v any) {
 }
 func cors(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Origin", "http://localhost:5173")
+		if origin := r.Header.Get("Origin"); origin != "" {
+			if u, err := url.Parse(origin); err == nil && localOrigin(u, r.Host) {
+				w.Header().Set("Access-Control-Allow-Origin", origin)
+				w.Header().Set("Vary", "Origin")
+			}
+		}
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
 		if r.Method == http.MethodOptions {
 			w.WriteHeader(204)
@@ -380,4 +390,9 @@ func cors(next http.Handler) http.Handler {
 		}
 		next.ServeHTTP(w, r)
 	})
+}
+
+func localOrigin(origin *url.URL, requestHost string) bool {
+	hostname := strings.ToLower(origin.Hostname())
+	return origin.Host == requestHost || hostname == "localhost" || hostname == "127.0.0.1" || hostname == "::1" || strings.HasSuffix(hostname, ".local")
 }
