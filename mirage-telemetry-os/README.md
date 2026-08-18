@@ -47,7 +47,7 @@ VEHICLE_PROFILE=fk8 UI_THEME=mirage-retro CLIENT_BRANDING=mirage-motorworks DEV_
 
 ## API
 
-`GET /api/health`, `/api/status`, `/api/telemetry/current`, `/api/config/active`, `/api/vehicle`, `/api/vehicle/inspect`, `/api/simulator/scenarios`, `/api/simulator/actions`; development POST controls under `/api/simulator`; capture start/stop APIs; `WS /ws/telemetry`; `GET /metrics`.
+`GET /api/health`, `/api/status`, `/api/device`, `/api/mobile/bootstrap`, `/api/telemetry/current`, `/api/config/active`, `/api/vehicle`, `/api/vehicle/inspect`, `/api/sessions`; session start/stop/status/replay plus redacted normalized/raw download APIs; development controls under `/api/simulator`; `WS /ws/telemetry`; `GET /metrics`.
 
 Build the CLI with `make build`, then use:
 
@@ -58,12 +58,17 @@ bin/mirage vehicle inspect
 bin/mirage vehicle inspect --json
 bin/mirage --vehicle "2026 Honda HR-V" --state engine-running vehicle raw-probe
 bin/mirage --vehicle "2026 Honda HR-V" --duration 2m vehicle uds-sample
-bin/mirage capture start
-bin/mirage capture stop
+bin/mirage --label "morning commute" session start
+bin/mirage session status
+bin/mirage session stop
+bin/mirage session list
+bin/mirage --speed 4 session replay SESSION_ID
+bin/mirage --online vin decode VIN_HERE
+bin/mirage vin cache-status
 ```
 
 `vehicle probe` is the first command to run when the physical vLinker FS arrives. It enumerates only platform USB-serial candidates and performs a safe ELM identity probe. Add its observed VID/PID to `config/obd.yaml`. No Internet or Prometheus process is required at runtime.
 
-See [architecture](docs/architecture.md) and [Raspberry Pi notes](docs/raspberry-pi.md).
+See [architecture](docs/architecture.md), [offline VIN decoding](docs/offline-vin.md), and [Raspberry Pi notes](docs/raspberry-pi.md).
 
 For the physical Vgate adapter, follow the [macOS vLinker FS bring-up guide](docs/macos-vlinker.md). Once attached, Mirage first attempts classic SAE J1979 and then SAE J1979-2 OBD-on-UDS. Only channels advertised by the ECU are shown; unavailable values stay blank rather than falling back to simulator data. The standardized VIN is resolved through NHTSA vPIC when Internet access is available so an unknown vehicle can receive a model-named profile such as `HR-V OS` or `ATLAS OS`.

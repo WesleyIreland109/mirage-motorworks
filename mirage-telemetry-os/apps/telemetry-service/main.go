@@ -45,7 +45,7 @@ func main() {
 		if err := discoverer.Start(ctx); err != nil {
 			log.Printf("device discovery: %v", err)
 		} else {
-			go watchDevices(ctx, discoverer, provider, cfg)
+			go watchDevices(ctx, discoverer, provider, api, cfg)
 		}
 		defer discoverer.Stop(context.Background())
 	}
@@ -69,7 +69,7 @@ func main() {
 	_ = provider.Stop(shutdown)
 }
 
-func watchDevices(ctx context.Context, discoverer discovery.DeviceDiscovery, provider *simulator.Simulator, cfg config.Active) {
+func watchDevices(ctx context.Context, discoverer discovery.DeviceDiscovery, provider *simulator.Simulator, api *server.API, cfg config.Active) {
 	for {
 		select {
 		case <-ctx.Done():
@@ -80,11 +80,11 @@ func watchDevices(ctx context.Context, discoverer discovery.DeviceDiscovery, pro
 				provider.Attachment().RemoveAdapter()
 				continue
 			}
-			go probeDevice(ctx, event.Device.Port, provider, cfg)
+			go probeDevice(ctx, event.Device.Port, provider, api, cfg)
 		}
 	}
 }
-func probeDevice(ctx context.Context, port string, provider *simulator.Simulator, cfg config.Active) {
+func probeDevice(ctx context.Context, port string, provider *simulator.Simulator, api *server.API, cfg config.Active) {
 	log.Printf("OBD USB // candidate detected // port=%s baud=%d", port, cfg.OBD.BaudRate)
 	serialTransport := transport.NewELMSerial(port, cfg.OBD.BaudRate, time.Duration(cfg.OBD.ConnectionTimeoutSecs)*time.Second)
 	adapter := obd.NewELM327Adapter(serialTransport, port, cfg.OBD.Initialization)
@@ -204,7 +204,19 @@ func probeDevice(ctx context.Context, port string, provider *simulator.Simulator
 			protocol.Name += " / SAE J1979-2"
 			evidence.Protocol = protocol.Name
 		}
-		if decoded, decodeErr := (vehicle.VPICVINDecoder{}).Decode(ctx, vin); decodeErr == nil {
+		var decoders vehicle.ChainDecoder
+		if databaseURL := env("VPIC_DATABASE_URL", ""); databaseURL != "" {
+			decoders = append(decoders, vehicle.PostgresVINDecoder{DSN: databaseURL})
+		}
+		if env("VIN_LOOKUP_MODE", "cache-first") != "offline" {
+			decoders = append(decoders, vehicle.VPICVINDecoder{})
+		}
+		var fallback vehicle.VINDecoder
+		if len(decoders) > 0 {
+			fallback = decoders
+		}
+		decoder := &vehicle.CacheDecoder{Path: env("VIN_CACHE_PATH", "data/vin-cache.json"), Fallback: fallback}
+		if decoded, decodeErr := decoder.Decode(ctx, vin); decodeErr == nil {
 			evidence.ManufacturerHint = decoded.Manufacturer
 			if evidence.ManufacturerHint == "" {
 				evidence.ManufacturerHint = decoded.Make
@@ -212,15 +224,30 @@ func probeDevice(ctx context.Context, port string, provider *simulator.Simulator
 			evidence.ModelHint = decoded.Model
 			evidence.TrimHint = decoded.Trim
 			evidence.ModelYearHint = decoded.ModelYear
-			log.Printf("OBD VIN PROFILE // make=%s model=%s year=%d", decoded.Make, decoded.Model, decoded.ModelYear)
+			log.Printf("OBD VIN PROFILE // local/cache-first decode // make=%s model=%s year=%d", decoded.Make, decoded.Model, decoded.ModelYear)
 		} else {
-			log.Printf("OBD VIN PROFILE // online decode unavailable // %v", decodeErr)
+			log.Printf("OBD VIN PROFILE // detailed decode unavailable; continuing with offline WMI/year // %v", decodeErr)
 		}
 		_ = provider.Attachment().ConnectEvidence(evidence, supported, protocol.Name)
 		provider.SetLive(true)
+		if env("AUTO_RECORD_SESSIONS", "true") == "true" && api.ActiveSession() == nil {
+			label := provider.Attachment().Snapshot().Profile.OSName
+			if summary, sessionErr := api.StartSession(label); sessionErr != nil {
+				log.Printf("DRIVE SESSION // automatic start failed // %v", sessionErr)
+			} else {
+				log.Printf("DRIVE SESSION // recording // id=%s path=%s", summary.ID, summary.Path)
+				defer func() {
+					if stopped, stopErr := api.StopSession(); stopErr == nil {
+						log.Printf("DRIVE SESSION // complete // id=%s samples=%d duration=%dms", stopped.ID, stopped.Samples, stopped.DurationMS)
+					}
+				}()
+			}
+		}
 		serialTransport.SetTimeout(time.Duration(cfg.OBD.LiveTimeoutSecs) * time.Second)
 		log.Printf("LIVE OBD TELEMETRY // %d supported metrics // capture with: bin/mirage capture start", provider.Attachment().Snapshot().SupportedMetrics)
-		poller := liveobd.Poller{Adapter: adapter, Attachment: provider.Attachment(), Publish: provider.PublishLive, Interval: 50 * time.Millisecond, Mode: mode}
+		poller := liveobd.Poller{Adapter: adapter, Attachment: provider.Attachment(), Publish: provider.PublishLive, Interval: 50 * time.Millisecond, Mode: mode, Observe: func(observation liveobd.Observation) {
+			_ = api.RecordOBD(observation, observation.Error != "")
+		}}
 		if pollErr := poller.Run(ctx, supported); pollErr != nil && ctx.Err() == nil {
 			provider.SetLive(false)
 			provider.Attachment().IgnitionOff()

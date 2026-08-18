@@ -1,12 +1,25 @@
 [Unit]
 Description=Mirage Telemetry OS service
-After=network.target
+After=network-online.target
+Wants=network-online.target
 [Service]
+User=mirage
+Group=mirage
 WorkingDirectory=/opt/mirage-telemetry-os
 Environment=VEHICLE_PROFILE=fk8
 Environment=UI_THEME=mirage-retro
-ExecStart=/opt/mirage-telemetry-os/bin/telemetry-service -listen 127.0.0.1:8080
+Environment=VIN_LOOKUP_MODE=offline
+Environment=VIN_CACHE_PATH=/var/lib/mirage/vin-cache.json
+Environment=VPIC_DATABASE_URL=postgresql:///vpic?host=/var/run/postgresql
+Environment=SESSION_DIR=/var/lib/mirage/sessions
+Environment=DASHBOARD_DIR=/opt/mirage-telemetry-os/apps/dashboard/dist
+Environment=AUTO_RECORD_SESSIONS=true
+ExecStart=/opt/mirage-telemetry-os/bin/telemetry-service -listen 0.0.0.0:8080
 Restart=always
 RestartSec=2
+StateDirectory=mirage
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
 [Install]
 WantedBy=multi-user.target

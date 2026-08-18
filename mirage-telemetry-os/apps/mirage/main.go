@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -17,6 +18,7 @@ import (
 	"github.com/mirage-motorworks/telemetry-os/internal/discovery"
 	"github.com/mirage-motorworks/telemetry-os/internal/obd"
 	"github.com/mirage-motorworks/telemetry-os/internal/transport"
+	"github.com/mirage-motorworks/telemetry-os/internal/vehicle"
 )
 
 func main() {
@@ -24,6 +26,11 @@ func main() {
 	vehicleLabel := flag.String("vehicle", "unlabeled", "vehicle label stored in diagnostic reports")
 	vehicleState := flag.String("state", "engine-running", "vehicle state: engine-running, ignition-on, or accessory")
 	sampleDuration := flag.Duration("duration", 2*time.Minute, "duration for a read-only vehicle sample")
+	sessionLabel := flag.String("label", "", "drive session label")
+	replaySpeed := flag.Float64("speed", 1, "session replay speed multiplier")
+	vinCache := flag.String("vin-cache", "data/vin-cache.json", "private local VIN decoder cache")
+	vpicDatabase := flag.String("vpic-database", "", "local NHTSA vPIC PostgreSQL URL")
+	onlineVIN := flag.Bool("online", false, "allow NHTSA vPIC fallback and cache the result")
 	flag.Parse()
 	args := flag.Args()
 	if len(args) < 2 {
@@ -42,16 +49,37 @@ func main() {
 		udsSample(*vehicleLabel, *vehicleState, *sampleDuration)
 	case "vehicle inspect":
 		inspect(*server, len(args) > 2 && args[2] == "--json")
-	case "capture start":
-		post(*server+"/api/capture/start", nil)
-	case "capture stop":
-		post(*server+"/api/capture/stop", nil)
+	case "session start", "capture start":
+		post(*server+"/api/session/start", map[string]string{"label": *sessionLabel})
+	case "session stop", "capture stop":
+		post(*server+"/api/session/stop", nil)
+	case "session status":
+		printURL(*server + "/api/session/status")
+	case "session list":
+		printURL(*server + "/api/sessions")
+	case "session replay":
+		if len(args) < 3 {
+			fatal(fmt.Errorf("session replay requires a session id"))
+		}
+		post(*server+"/api/session/replay", map[string]any{"id": args[2], "speed": *replaySpeed})
+	case "vin decode":
+		if len(args) < 3 {
+			fatal(fmt.Errorf("vin decode requires a VIN"))
+		}
+		decodeVIN(args[2], *vinCache, *vpicDatabase, *onlineVIN)
+	case "vin cache-status":
+		cache := &vehicle.CacheDecoder{Path: *vinCache}
+		count, err := cache.Status()
+		if err != nil {
+			fatal(err)
+		}
+		fmt.Printf("VIN cache................... %s\nCached vehicles............. %d\n", *vinCache, count)
 	default:
 		usage()
 	}
 }
 func usage() {
-	fmt.Fprintln(os.Stderr, "usage: mirage [--server URL] [--vehicle LABEL] [--state STATE] [--duration 2m] vehicle watch|probe|raw-probe|bus-scan|uds-sample|inspect [--json]\n       mirage [--server URL] capture start|stop")
+	fmt.Fprintln(os.Stderr, "usage: mirage [flags] vehicle watch|probe|raw-probe|bus-scan|uds-sample|inspect [--json]\n       mirage [--server URL] [--label LABEL] session start|stop|status|list\n       mirage [--server URL] [--speed N] session replay SESSION_ID\n       mirage [--vin-cache PATH] [--online] vin decode VIN|cache-status")
 	os.Exit(2)
 }
 
@@ -478,6 +506,47 @@ func post(url string, body any) {
 		fatal(fmt.Errorf("HTTP %d: %s", res.StatusCode, data))
 	}
 	fmt.Print(string(data))
+}
+func printURL(url string) {
+	res, err := http.Get(url)
+	if err != nil {
+		fatal(err)
+	}
+	defer res.Body.Close()
+	data, _ := io.ReadAll(res.Body)
+	if res.StatusCode >= 300 {
+		fatal(fmt.Errorf("HTTP %d: %s", res.StatusCode, data))
+	}
+	var value any
+	if json.Unmarshal(data, &value) == nil {
+		formatted, _ := json.MarshalIndent(value, "", "  ")
+		fmt.Println(string(formatted))
+		return
+	}
+	fmt.Print(string(data))
+}
+func decodeVIN(vin, path, databaseURL string, online bool) {
+	var chain vehicle.ChainDecoder
+	if databaseURL != "" {
+		chain = append(chain, vehicle.PostgresVINDecoder{DSN: databaseURL})
+	}
+	if online {
+		chain = append(chain, vehicle.VPICVINDecoder{})
+	}
+	var fallback vehicle.VINDecoder
+	if len(chain) > 0 {
+		fallback = chain
+	}
+	decoder := &vehicle.CacheDecoder{Path: path, Fallback: fallback}
+	decoded, err := decoder.Decode(context.Background(), vin)
+	if err != nil {
+		if errors.Is(err, vehicle.ErrVINNotCached) {
+			fatal(fmt.Errorf("VIN is not cached; rerun once with --online while Internet is available"))
+		}
+		fatal(err)
+	}
+	data, _ := json.MarshalIndent(decoded, "", "  ")
+	fmt.Println(string(data))
 }
 func fatal(err error) { fmt.Fprintln(os.Stderr, err); os.Exit(1) }
 func valueOr(value, fallback string) string {

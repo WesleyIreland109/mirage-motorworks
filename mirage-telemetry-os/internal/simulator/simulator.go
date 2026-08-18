@@ -52,6 +52,21 @@ func (s *Simulator) PublishLive(snapshot telemetry.Snapshot) {
 		s.readings <- snapshot
 	}
 }
+func (s *Simulator) PublishReplay(snapshot telemetry.Snapshot) {
+	s.mu.Lock()
+	s.live = true
+	s.connected = true
+	s.mu.Unlock()
+	s.publish(snapshot)
+}
+func (s *Simulator) publish(snapshot telemetry.Snapshot) {
+	select {
+	case s.readings <- snapshot:
+	default:
+		<-s.readings
+		s.readings <- snapshot
+	}
+}
 func (s *Simulator) Action(action string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()

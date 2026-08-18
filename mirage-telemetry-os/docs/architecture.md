@@ -35,7 +35,7 @@ Standard OBD does not claim make/model/trim. VIN evidence is validated locally a
 
 ## Availability and capture
 
-Readings carry `AVAILABLE`, `UNAVAILABLE`, `STALE`, `ERROR`, or `UNKNOWN` status. Unsupported PIDs are not intended for polling. Research captures are permission-restricted JSONL files under ignored `captures/`; full VIN is redacted by default. Prometheus never uses VIN, serial number, GPS, arbitrary errors, or client names as labels.
+Readings carry `AVAILABLE`, `UNAVAILABLE`, `STALE`, `ERROR`, or `UNKNOWN` status. Unsupported PIDs are not intended for polling. Drive sessions are permission-restricted directories containing a durable summary, replayable normalized telemetry, and the raw read-only OBD responses needed to retest parsers later; full VIN and GPS are redacted by default. Diagnostic research captures remain separate. Prometheus never uses VIN, serial number, GPS, arbitrary errors, or client names as labels.
 
 ## Physical adapter seam
 

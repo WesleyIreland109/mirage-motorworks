@@ -1,4 +1,4 @@
-.PHONY: dev backend frontend install test build fmt
+.PHONY: dev backend frontend install test build fmt vpic-update
 dev:
 	@trap 'kill 0' INT TERM EXIT; DEV_MODE=true go run ./apps/telemetry-service & npm --prefix apps/dashboard run dev
 backend:
@@ -15,4 +15,6 @@ build:
 	go build -o bin/mirage ./apps/mirage
 	npm --prefix apps/dashboard run build
 fmt:
-	gofmt -w apps/telemetry-service internal
+	gofmt -w apps internal
+vpic-update:
+	./scripts/update-vpic.sh

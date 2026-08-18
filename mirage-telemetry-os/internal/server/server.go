@@ -1,10 +1,11 @@
 package server
 
 import (
+	"context"
 	"encoding/json"
-	"fmt"
 	"github.com/gorilla/websocket"
 	"github.com/mirage-motorworks/telemetry-os/internal/config"
+	"github.com/mirage-motorworks/telemetry-os/internal/session"
 	"github.com/mirage-motorworks/telemetry-os/internal/simulator"
 	"github.com/mirage-motorworks/telemetry-os/internal/telemetry"
 	"github.com/prometheus/client_golang/prometheus"
@@ -12,7 +13,6 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"path/filepath"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -31,16 +31,23 @@ type API struct {
 	wsClients                                                                                prometheus.Gauge
 	wsMessages                                                                               prometheus.Counter
 	rpm, speed, boost, coolant, oil, oilPressure, iat, throttle, battery, connected, latency prometheus.Gauge
-	captureMu                                                                                sync.Mutex
-	captureFile                                                                              *os.File
+	sessions                                                                                 *session.Manager
 }
 
 func New(cfg config.Active, p *simulator.Simulator, dev bool) *API {
-	a := &API{cfg: cfg, provider: p, dev: dev, started: time.Now(), clients: map[chan telemetry.Snapshot]struct{}{}, registry: prometheus.NewRegistry()}
+	sessionRoot := os.Getenv("SESSION_DIR")
+	if sessionRoot == "" {
+		sessionRoot = "sessions"
+	}
+	a := &API{cfg: cfg, provider: p, dev: dev, started: time.Now(), clients: map[chan telemetry.Snapshot]struct{}{}, registry: prometheus.NewRegistry(), sessions: session.New(sessionRoot)}
 	a.initMetrics()
 	go a.consume()
 	return a
 }
+func (a *API) StartSession(label string) (session.Summary, error) { return a.sessions.Start(label) }
+func (a *API) StopSession() (session.Summary, error)              { return a.sessions.Stop() }
+func (a *API) ActiveSession() *session.Summary                    { return a.sessions.Status() }
+func (a *API) RecordOBD(value any, failed bool) error             { return a.sessions.RecordOBD(value, failed) }
 func (a *API) initMetrics() {
 	gauge := func(name, help string) prometheus.Gauge {
 		g := prometheus.NewGauge(prometheus.GaugeOpts{Name: name, Help: help})
@@ -97,7 +104,7 @@ func (a *API) consume() {
 	for snap := range a.provider.Readings() {
 		copy := snap
 		a.current.Store(&copy)
-		a.record(snap)
+		_ = a.sessions.Record(snap)
 		a.samples.Inc()
 		set(a.rpm, snap.RPM)
 		set(a.speed, snap.VehicleSpeedMPH)
@@ -134,6 +141,12 @@ func (a *API) Handler() http.Handler {
 	m.HandleFunc("/api/status", func(w http.ResponseWriter, r *http.Request) {
 		a.json(w, map[string]any{"provider": a.provider.Status(), "uptime_seconds": time.Since(a.started).Seconds(), "version": "0.1.0"})
 	})
+	m.HandleFunc("/api/device", func(w http.ResponseWriter, r *http.Request) {
+		a.json(w, map[string]any{"name": "Mirage Telemetry OS", "version": "0.1.0", "offlineReady": true, "features": []string{"vehicle-identity", "live-telemetry", "sessions", "replay", "offline-vin-cache", "local-vpic"}})
+	})
+	m.HandleFunc("/api/mobile/bootstrap", func(w http.ResponseWriter, r *http.Request) {
+		a.json(w, map[string]any{"device": map[string]any{"name": "Mirage Telemetry OS", "version": "0.1.0"}, "vehicle": a.provider.Attachment().Snapshot(), "session": a.sessions.Status(), "config": a.cfg})
+	})
 	m.HandleFunc("/api/config/active", func(w http.ResponseWriter, r *http.Request) { a.json(w, a.cfg) })
 	m.HandleFunc("/api/telemetry/current", func(w http.ResponseWriter, r *http.Request) {
 		if s := a.current.Load(); s != nil {
@@ -148,10 +161,22 @@ func (a *API) Handler() http.Handler {
 	m.HandleFunc("/api/simulator/action", a.action)
 	m.HandleFunc("/api/vehicle", func(w http.ResponseWriter, r *http.Request) { a.json(w, a.provider.Attachment().Snapshot()) })
 	m.HandleFunc("/api/vehicle/inspect", func(w http.ResponseWriter, r *http.Request) { a.json(w, a.provider.Attachment().Snapshot()) })
-	m.HandleFunc("/api/capture/start", a.captureStart)
-	m.HandleFunc("/api/capture/stop", a.captureStop)
+	m.HandleFunc("/api/session/start", a.sessionStart)
+	m.HandleFunc("/api/session/stop", a.sessionStop)
+	m.HandleFunc("/api/session/status", a.sessionStatus)
+	m.HandleFunc("/api/session/replay", a.sessionReplay)
+	m.HandleFunc("/api/sessions", a.sessionList)
+	m.HandleFunc("/api/sessions/{id}/summary", a.sessionSummary)
+	m.HandleFunc("/api/sessions/{id}/telemetry", a.sessionTelemetry)
+	m.HandleFunc("/api/sessions/{id}/obd", a.sessionOBD)
+	// Compatibility aliases for the original capture CLI.
+	m.HandleFunc("/api/capture/start", a.sessionStart)
+	m.HandleFunc("/api/capture/stop", a.sessionStop)
 	m.HandleFunc("/ws/telemetry", a.websocket)
 	m.Handle("/metrics", promhttp.HandlerFor(a.registry, promhttp.HandlerOpts{}))
+	if dashboard := os.Getenv("DASHBOARD_DIR"); dashboard != "" {
+		m.Handle("/", http.FileServer(http.Dir(dashboard)))
+	}
 	return cors(m)
 }
 func (a *API) scenario(w http.ResponseWriter, r *http.Request) {
@@ -198,55 +223,105 @@ func (a *API) action(w http.ResponseWriter, r *http.Request) {
 	}
 	a.json(w, a.provider.Attachment().Snapshot())
 }
-func (a *API) captureStart(w http.ResponseWriter, r *http.Request) {
+func (a *API) sessionStart(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	a.captureMu.Lock()
-	defer a.captureMu.Unlock()
-	if a.captureFile != nil {
-		http.Error(w, "capture already active", http.StatusConflict)
-		return
+	var body struct {
+		Label string `json:"label"`
 	}
-	if err := os.MkdirAll("captures", 0700); err != nil {
-		http.Error(w, err.Error(), 500)
-		return
+	if r.Body != nil {
+		_ = json.NewDecoder(http.MaxBytesReader(w, r.Body, 4096)).Decode(&body)
 	}
-	path := filepath.Join("captures", fmt.Sprintf("capture-%s.jsonl", time.Now().UTC().Format("20060102T150405Z")))
-	file, err := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
+	summary, err := a.StartSession(body.Label)
 	if err != nil {
-		http.Error(w, err.Error(), 500)
+		http.Error(w, err.Error(), http.StatusConflict)
 		return
 	}
-	a.captureFile = file
-	a.json(w, map[string]string{"status": "recording", "path": path})
+	a.json(w, summary)
 }
-func (a *API) captureStop(w http.ResponseWriter, r *http.Request) {
+func (a *API) sessionStop(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	a.captureMu.Lock()
-	defer a.captureMu.Unlock()
-	if a.captureFile == nil {
-		http.Error(w, "capture not active", http.StatusConflict)
+	summary, err := a.StopSession()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusConflict)
 		return
 	}
-	_ = a.captureFile.Close()
-	a.captureFile = nil
-	a.json(w, map[string]string{"status": "stopped"})
+	a.json(w, summary)
 }
-func (a *API) record(snapshot telemetry.Snapshot) {
-	a.captureMu.Lock()
-	defer a.captureMu.Unlock()
-	if a.captureFile == nil {
+func (a *API) sessionStatus(w http.ResponseWriter, _ *http.Request) {
+	if active := a.sessions.Status(); active != nil {
+		a.json(w, active)
 		return
 	}
-	snapshot.Attachment.Identity.VIN.Value = "REDACTED"
-	snapshot.GPSLatitude = telemetry.Missing("capture-redaction", snapshot.Timestamp)
-	snapshot.GPSLongitude = telemetry.Missing("capture-redaction", snapshot.Timestamp)
-	_ = json.NewEncoder(a.captureFile).Encode(snapshot)
+	a.json(w, map[string]string{"state": "idle"})
+}
+func (a *API) sessionList(w http.ResponseWriter, _ *http.Request) {
+	sessions, err := a.sessions.List()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	a.json(w, sessions)
+}
+func (a *API) sessionReplay(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	var body struct {
+		ID    string  `json:"id"`
+		Speed float64 `json:"speed"`
+	}
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 4096)).Decode(&body); err != nil {
+		http.Error(w, "invalid JSON", http.StatusBadRequest)
+		return
+	}
+	if body.Speed == 0 {
+		body.Speed = 1
+	}
+	path, err := a.sessions.ReplayPath(body.ID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusNotFound)
+		return
+	}
+	go func() {
+		_ = session.Replay(context.Background(), path, body.Speed, a.provider.PublishReplay)
+		a.provider.SetLive(false)
+	}()
+	a.json(w, map[string]any{"state": "replaying", "id": body.ID, "speed": body.Speed})
+}
+func (a *API) sessionSummary(w http.ResponseWriter, r *http.Request) {
+	summary, err := a.sessions.Get(r.PathValue("id"))
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusNotFound)
+		return
+	}
+	a.json(w, summary)
+}
+func (a *API) sessionTelemetry(w http.ResponseWriter, r *http.Request) {
+	path, err := a.sessions.TelemetryPath(r.PathValue("id"))
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusNotFound)
+		return
+	}
+	w.Header().Set("Content-Disposition", `attachment; filename="telemetry.jsonl"`)
+	w.Header().Set("Content-Type", "application/x-ndjson")
+	http.ServeFile(w, r, path)
+}
+func (a *API) sessionOBD(w http.ResponseWriter, r *http.Request) {
+	path, err := a.sessions.OBDPath(r.PathValue("id"))
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusNotFound)
+		return
+	}
+	w.Header().Set("Content-Disposition", `attachment; filename="obd.jsonl"`)
+	w.Header().Set("Content-Type", "application/x-ndjson")
+	http.ServeFile(w, r, path)
 }
 func (a *API) websocket(w http.ResponseWriter, r *http.Request) {
 	up := websocket.Upgrader{CheckOrigin: func(r *http.Request) bool {

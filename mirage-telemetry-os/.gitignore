@@ -1,5 +1,9 @@
 /bin/
 /captures/
+/sessions/
+/data/
 /apps/dashboard/dist/
 /apps/dashboard/node_modules/
+/apps/dashboard/vite.config.js
+/apps/dashboard/vite.config.d.ts
 *.log

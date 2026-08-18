@@ -18,6 +18,15 @@ type Poller struct {
 	Publish    func(telemetry.Snapshot)
 	Interval   time.Duration
 	Mode       string
+	Observe    func(Observation)
+}
+
+type Observation struct {
+	Timestamp time.Time `json:"timestamp"`
+	Mode      string    `json:"mode"`
+	PID       string    `json:"pid"`
+	Raw       []string  `json:"raw,omitempty"`
+	Error     string    `json:"error,omitempty"`
 }
 
 const (
@@ -58,7 +67,14 @@ func (p Poller) Run(ctx context.Context, supported map[byte]bool) error {
 		case started := <-ticker.C:
 			pid := active[index%len(active)]
 			index++
-			value, err := query(p.Adapter, ctx, pid, p.Mode)
+			value, response, err := query(p.Adapter, ctx, pid, p.Mode)
+			if p.Observe != nil {
+				observation := Observation{Timestamp: time.Now(), Mode: p.Mode, PID: fmt.Sprintf("%02X", pid), Raw: response.Raw}
+				if err != nil {
+					observation.Error = err.Error()
+				}
+				p.Observe(observation)
+			}
 			p.Attachment.RecordRequest(err)
 			if err != nil {
 				consecutiveErrors++
@@ -81,7 +97,7 @@ func (p Poller) Run(ctx context.Context, supported map[byte]bool) error {
 	}
 }
 
-func query(adapter obd.Adapter, ctx context.Context, pid byte, mode string) (float64, error) {
+func query(adapter obd.Adapter, ctx context.Context, pid byte, mode string) (float64, obd.Response, error) {
 	request := obd.Request{Service: 0x01, PID: &pid, Operation: obd.ReadOnly, Description: "live telemetry"}
 	responseMarker := []byte{0x41, pid}
 	if mode == ModeUDS {
@@ -90,15 +106,16 @@ func query(adapter obd.Adapter, ctx context.Context, pid byte, mode string) (flo
 	}
 	response, err := adapter.Query(ctx, request)
 	if err != nil {
-		return 0, err
+		return 0, response, err
 	}
 	data := obd.HexBytes(response.Raw)
 	for index := 0; index+len(responseMarker) < len(data); index++ {
 		if bytes.Equal(data[index:index+len(responseMarker)], responseMarker) {
-			return obd.DecodeStandardPID(pid, data[index+len(responseMarker):])
+			value, decodeErr := obd.DecodeStandardPID(pid, data[index+len(responseMarker):])
+			return value, response, decodeErr
 		}
 	}
-	return 0, fmt.Errorf("PID %02X response malformed", pid)
+	return 0, response, fmt.Errorf("PID %02X response malformed", pid)
 }
 
 func emptySnapshot(now time.Time, attachment attach.Snapshot, source string) telemetry.Snapshot {
