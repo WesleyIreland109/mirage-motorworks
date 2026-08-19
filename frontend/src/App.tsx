@@ -3,6 +3,8 @@ import { Navigate, Route, Routes, useSearchParams } from "react-router-dom";
 import { AdminLayout } from "@/layouts/AdminLayout";
 import { PublicLayout } from "@/layouts/PublicLayout";
 import { AdminDashboard } from "@/pages/admin/AdminDashboard";
+import { GarageWorkspacePage } from "@/pages/admin/GarageWorkspacePage";
+import { DriveReportPage } from "@/pages/public/DriveReportPage";
 import { PlaceholderAdminPage } from "@/pages/admin/PlaceholderAdminPage";
 import { AboutPage } from "@/pages/public/AboutPage";
 import { ContactPage } from "@/pages/public/ContactPage";
@@ -28,7 +30,11 @@ function HomeRoute() {
 }
 
 export function App() {
-  const { data: user } = useQuery({ queryKey: ["auth-user"], queryFn: currentUser, retry: false });
+  const { data: user } = useQuery({
+    queryKey: ["auth-user"],
+    queryFn: currentUser,
+    retry: false,
+  });
   return (
     <Routes>
       <Route element={<PublicLayout />}>
@@ -40,16 +46,44 @@ export function App() {
         <Route path="journal" element={<JournalPage />} />
       </Route>
       <Route path="updates/:slug" element={<VehicleUpdatePage />} />
+      <Route path="drive-reports/:token" element={<DriveReportPage />} />
       <Route path="login" element={<LoginPage signedIn={Boolean(user)} />} />
       <Route element={<RequireAuth />}>
         <Route path="admin" element={<AdminLayout />}>
           <Route index element={<AdminDashboard />} />
-          <Route path="vehicles" element={<AdminDashboard />} />
-          <Route path="expenses" element={<PlaceholderAdminPage title="Expenses" />} />
-          <Route path="repairs" element={<PlaceholderAdminPage title="Repairs" />} />
-          <Route path="analytics" element={<PlaceholderAdminPage title="Analytics" />} />
-          <Route path="documents" element={<PlaceholderAdminPage title="Documents" />} />
-          <Route path="settings" element={<PlaceholderAdminPage title="Settings" />} />
+          <Route path="vehicles" element={<Navigate to="/admin" replace />} />
+          <Route
+            path="working-on"
+            element={<GarageWorkspacePage purpose="working_on" />}
+          />
+          <Route
+            path="flips"
+            element={<GarageWorkspacePage purpose="flip" />}
+          />
+          <Route
+            path="inventory"
+            element={<PlaceholderAdminPage title="Public Inventory" />}
+          />
+          <Route
+            path="expenses"
+            element={<PlaceholderAdminPage title="Expenses" />}
+          />
+          <Route
+            path="repairs"
+            element={<PlaceholderAdminPage title="Repairs" />}
+          />
+          <Route
+            path="analytics"
+            element={<PlaceholderAdminPage title="Analytics" />}
+          />
+          <Route
+            path="documents"
+            element={<PlaceholderAdminPage title="Documents" />}
+          />
+          <Route
+            path="settings"
+            element={<PlaceholderAdminPage title="Settings" />}
+          />
         </Route>
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />

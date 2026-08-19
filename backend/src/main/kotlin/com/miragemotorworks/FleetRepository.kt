@@ -16,21 +16,27 @@ class FleetRepository(private val database: Database) {
 
     fun create(userId: String, input: FleetVehicleInput): FleetVehicle {
         require(input.year in 1950..2050 && input.make.isNotBlank() && input.model.isNotBlank() && input.mileage >= 0)
+        require(input.purpose in setOf("personal", "working_on", "flip"))
         return database.withConnection { connection ->
             connection.autoCommit = false
             try {
                 val id = UUID.randomUUID()
                 connection.prepareStatement(
                     """INSERT INTO owned_vehicles
-                    (id, user_id, year, make, model, trim, mileage, vin, primary_use, annual_mileage, notes)
-                    VALUES (?, ?::uuid, ?, ?, ?, ?, ?, ?, ?, ?, ?)"""
+                    (id, user_id, year, make, model, trim, mileage, vin, primary_use, annual_mileage, notes,
+                     purpose, owner_name, acquisition_price_cents, target_sale_price_cents)
+                    VALUES (?, ?::uuid, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"""
                 ).use { statement ->
                     statement.setObject(1, id); statement.setString(2, userId); statement.setInt(3, input.year)
                     statement.setString(4, input.make.trim()); statement.setString(5, input.model.trim())
                     statement.setString(6, input.trim.trim()); statement.setInt(7, input.mileage)
                     statement.setString(8, input.vin?.trim()?.ifEmpty { null }); statement.setString(9, input.primaryUse)
                     if (input.annualMileage == null) statement.setNull(10, java.sql.Types.INTEGER) else statement.setInt(10, input.annualMileage)
-                    statement.setString(11, input.notes.trim()); statement.executeUpdate()
+                    statement.setString(11, input.notes.trim()); statement.setString(12, input.purpose)
+                    statement.setString(13, input.ownerName?.trim()?.ifEmpty { null })
+                    if (input.acquisitionPriceCents == null) statement.setNull(14, java.sql.Types.BIGINT) else statement.setLong(14, input.acquisitionPriceCents)
+                    if (input.targetSalePriceCents == null) statement.setNull(15, java.sql.Types.BIGINT) else statement.setLong(15, input.targetSalePriceCents)
+                    statement.executeUpdate()
                 }
                 input.answers.filter { it.condition != "good" }.forEach { answer ->
                     val (priority, penalty, action) = when (answer.condition) {
@@ -108,6 +114,6 @@ class FleetRepository(private val database: Database) {
             } }
         }
         val readiness = (100 - tasks.filter { it.status in setOf("accepted", "in_progress") }.sumOf { it.penalty }).coerceIn(0, 100)
-        return FleetVehicle(vehicleId, getInt("year"), getString("make"), getString("model"), getString("trim"), getInt("mileage"), getString("vin"), getString("primary_use"), getObject("annual_mileage") as? Int, getString("notes"), readiness, tasks)
+        return FleetVehicle(vehicleId, getInt("year"), getString("make"), getString("model"), getString("trim"), getInt("mileage"), getString("vin"), getString("primary_use"), getObject("annual_mileage") as? Int, getString("notes"), getString("purpose"), getString("owner_name"), getObject("acquisition_price_cents") as? Long, getObject("target_sale_price_cents") as? Long, readiness, tasks)
     }
 }

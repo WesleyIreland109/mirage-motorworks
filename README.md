@@ -1,6 +1,12 @@
 # Mirage Motorworks
 
-Mirage Motorworks is the seed of a boutique enthusiast dealership operating system: a cinematic public brand site, a practical Garage OS admin surface, and a Kotlin/PostgreSQL API for inventory.
+Mirage Motorworks connects three parts of the business in one private operating system:
+
+1. Vehicle acquisition, repair, and resale.
+2. Garage OS for owned and temporarily managed vehicles.
+3. Mirage telemetry hardware, recorded-drive diagnostics, and customer-facing summaries.
+
+Garage OS keeps those lifecycles distinct: **My Garage** is the permanent personal fleet, **Working On** contains friend/customer vehicles and their imported telemetry sessions, and **Flips** tracks temporary inventory economics.
 
 ## Stack
 
@@ -61,7 +67,10 @@ npm run preview
 - `/contact` lead/contact form
 - `/journal` garage journal
 - `/admin` Garage OS dashboard
-- `/admin/inventory` inventory CRUD
+- `/admin/working-on` diagnostic vehicles, session imports, and report publishing
+- `/admin/flips` acquisition and target-sale tracking
+- `/admin/inventory` public sales inventory
+- `/drive-reports/:token` privacy-safe published Mirage Drive Summary
 
 ## Backend API
 
@@ -71,5 +80,14 @@ npm run preview
 - `POST /api/vehicles`
 - `PUT /api/vehicles/{id}`
 - `DELETE /api/vehicles/{id}`
+- `GET|POST /api/fleet`
+- `GET|POST /api/telemetry-sessions`
+- `PUT /api/telemetry-sessions/{id}/report`
+- `POST /api/telemetry-sessions/{id}/publish`
+- `GET /api/drive-reports/{token}`
+
+## Telemetry privacy boundary
+
+Garage OS imports a session's summary JSON plus telemetry JSONL in the browser. The raw JSONL is parsed locally and is **not uploaded**; the API stores only the metric names, sample counts, and observed minimum/average/maximum values. A report remains private until it is explicitly published. Public reports omit VINs, owner names, private notes, and raw samples. Simulator-backed sessions are permanently identified in the summary so they cannot be mistaken for vehicle evidence.
 
 See [docs/architecture.md](docs/architecture.md) and [docs/roadmap.md](docs/roadmap.md).

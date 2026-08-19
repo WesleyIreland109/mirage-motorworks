@@ -1,8 +1,16 @@
 import { mockVehicles } from "@/data/mockVehicles";
 import type { Vehicle, VehicleInput } from "@/types/vehicle";
-import type { FleetVehicle, FleetVehicleInput, TaskStatus } from "@/types/fleet";
+import type {
+  DriveReport,
+  FleetVehicle,
+  FleetVehicleInput,
+  SessionImport,
+  TaskStatus,
+  TelemetrySession,
+} from "@/types/fleet";
 
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? "/api";
+const API_BASE_URL =
+  (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? "/api";
 
 export interface AuthUser {
   id: string;
@@ -32,7 +40,10 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return response.json() as Promise<T>;
 }
 
-export async function login(email: string, password: string): Promise<AuthUser> {
+export async function login(
+  email: string,
+  password: string,
+): Promise<AuthUser> {
   const response = await request<{ user: AuthUser }>("/auth/login", {
     method: "POST",
     body: JSON.stringify({ email, password }),
@@ -53,13 +64,64 @@ export async function logout(): Promise<void> {
   await request<void>("/auth/logout", { method: "POST" });
 }
 
-export async function listFleet(): Promise<FleetVehicle[]> { return request<FleetVehicle[]>("/fleet"); }
-export async function createFleetVehicle(input: FleetVehicleInput): Promise<FleetVehicle> { return request<FleetVehicle>("/fleet", { method: "POST", body: JSON.stringify(input) }); }
-export async function updateMaintenanceTask(id: string, status: TaskStatus, completedMileage?: number): Promise<FleetVehicle> {
-  return request<FleetVehicle>(`/fleet/tasks/${id}`, { method: "PUT", body: JSON.stringify({ status, completedMileage }) });
+export async function listFleet(): Promise<FleetVehicle[]> {
+  return request<FleetVehicle[]>("/fleet");
+}
+export async function createFleetVehicle(
+  input: FleetVehicleInput,
+): Promise<FleetVehicle> {
+  return request<FleetVehicle>("/fleet", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+export async function updateMaintenanceTask(
+  id: string,
+  status: TaskStatus,
+  completedMileage?: number,
+): Promise<FleetVehicle> {
+  return request<FleetVehicle>(`/fleet/tasks/${id}`, {
+    method: "PUT",
+    body: JSON.stringify({ status, completedMileage }),
+  });
+}
+export async function listTelemetrySessions(
+  vehicleId?: string,
+): Promise<TelemetrySession[]> {
+  return request<TelemetrySession[]>(
+    `/telemetry-sessions${vehicleId ? `?vehicleId=${encodeURIComponent(vehicleId)}` : ""}`,
+  );
+}
+export async function importTelemetrySession(
+  input: SessionImport,
+): Promise<TelemetrySession> {
+  return request<TelemetrySession>("/telemetry-sessions", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+export async function saveDriveReport(
+  sessionId: string,
+  draft: { title: string; overview: string; observations: string[] },
+): Promise<DriveReport> {
+  return request<DriveReport>(`/telemetry-sessions/${sessionId}/report`, {
+    method: "PUT",
+    body: JSON.stringify(draft),
+  });
+}
+export async function publishDriveReport(
+  sessionId: string,
+): Promise<DriveReport> {
+  return request<DriveReport>(`/telemetry-sessions/${sessionId}/publish`, {
+    method: "POST",
+  });
+}
+export async function getDriveReport(token: string): Promise<DriveReport> {
+  return request<DriveReport>(`/drive-reports/${token}`);
 }
 
-const wait = (ms = 180) => new Promise((resolve) => window.setTimeout(resolve, ms));
+const wait = (ms = 180) =>
+  new Promise((resolve) => window.setTimeout(resolve, ms));
 
 export async function listVehicles(): Promise<Vehicle[]> {
   try {
@@ -75,7 +137,9 @@ export async function getVehicle(slug: string): Promise<Vehicle | undefined> {
     return await request<Vehicle>(`/vehicles/${slug}`);
   } catch {
     await wait();
-    return API_BASE_URL === "/api" ? undefined : mockVehicles.find((vehicle) => vehicle.slug === slug);
+    return API_BASE_URL === "/api"
+      ? undefined
+      : mockVehicles.find((vehicle) => vehicle.slug === slug);
   }
 }
 
@@ -86,7 +150,10 @@ export async function createVehicle(input: VehicleInput): Promise<Vehicle> {
   });
 }
 
-export async function updateVehicle(id: string, input: VehicleInput): Promise<Vehicle> {
+export async function updateVehicle(
+  id: string,
+  input: VehicleInput,
+): Promise<Vehicle> {
   return request<Vehicle>(`/vehicles/${id}`, {
     method: "PUT",
     body: JSON.stringify(input),

@@ -16,6 +16,10 @@ data class FleetVehicleInput(
     val primaryUse: String,
     val annualMileage: Int? = null,
     val notes: String = "",
+    val purpose: String = "personal",
+    val ownerName: String? = null,
+    val acquisitionPriceCents: Long? = null,
+    val targetSalePriceCents: Long? = null,
     val answers: List<MaintenanceAnswer>,
     val customItems: List<String> = emptyList()
 )
@@ -44,6 +48,10 @@ data class FleetVehicle(
     val primaryUse: String,
     val annualMileage: Int?,
     val notes: String,
+    val purpose: String,
+    val ownerName: String?,
+    val acquisitionPriceCents: Long?,
+    val targetSalePriceCents: Long?,
     val readiness: Int,
     val tasks: List<MaintenanceTask>
 )

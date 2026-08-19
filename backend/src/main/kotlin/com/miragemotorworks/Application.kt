@@ -32,11 +32,11 @@ fun main() {
     auth.bootstrapAdmin(config.bootstrapAdminEmail, config.bootstrapAdminPassword)
 
     embeddedServer(Netty, port = config.port, host = "0.0.0.0") {
-        module(config, VehicleRepository(database), auth, FleetRepository(database))
+        module(config, VehicleRepository(database), auth, FleetRepository(database), TelemetryRepository(database))
     }.start(wait = true)
 }
 
-fun Application.module(config: AppConfig, vehicles: VehicleRepository, auth: AuthRepository, fleet: FleetRepository) {
+fun Application.module(config: AppConfig, vehicles: VehicleRepository, auth: AuthRepository, fleet: FleetRepository, telemetry: TelemetryRepository) {
     install(CallLogging)
     install(ContentNegotiation) {
         json(
@@ -159,6 +159,36 @@ fun Application.module(config: AppConfig, vehicles: VehicleRepository, auth: Aut
                 val vehicle = runCatching { fleet.updateTask(user.id, taskId, call.receive<TaskUpdate>()) }.getOrNull()
                 if (vehicle == null) call.respond(HttpStatusCode.NotFound, mapOf("message" to "Task not found")) else call.respond(vehicle)
             }
+        }
+
+        route("/api/telemetry-sessions") {
+            get {
+                val user = call.authenticatedUser(auth) ?: return@get
+                call.respond(telemetry.list(user.id, call.request.queryParameters["vehicleId"]))
+            }
+            post {
+                val user = call.authenticatedUser(auth) ?: return@post
+                runCatching { telemetry.import(user.id, call.receive<SessionImport>()) }
+                    .onSuccess { call.respond(HttpStatusCode.Created, it) }
+                    .onFailure { call.respond(HttpStatusCode.BadRequest, mapOf("message" to "Invalid or unauthorized session import")) }
+            }
+            put("/{id}/report") {
+                val user = call.authenticatedUser(auth) ?: return@put
+                val id = call.parameters["id"].orEmpty()
+                runCatching { telemetry.saveReport(user.id, id, call.receive<ReportDraft>()) }
+                    .onSuccess { call.respond(it) }
+                    .onFailure { call.respond(HttpStatusCode.BadRequest, mapOf("message" to "Unable to save report")) }
+            }
+            post("/{id}/publish") {
+                val user = call.authenticatedUser(auth) ?: return@post
+                val report = telemetry.publish(user.id, call.parameters["id"].orEmpty())
+                if (report == null) call.respond(HttpStatusCode.NotFound, mapOf("message" to "Draft report not found")) else call.respond(report)
+            }
+        }
+
+        get("/api/drive-reports/{token}") {
+            val report = telemetry.publicReport(call.parameters["token"].orEmpty())
+            if (report == null) call.respond(HttpStatusCode.NotFound, mapOf("message" to "Report not found")) else call.respond(report)
         }
     }
 }

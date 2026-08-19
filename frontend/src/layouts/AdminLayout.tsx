@@ -8,6 +8,8 @@ import {
   Settings,
   Wrench,
   LogOut,
+  Activity,
+  BadgeDollarSign,
 } from "lucide-react";
 import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
@@ -17,8 +19,10 @@ import { logout } from "@/api/client";
 import { Button } from "@/components/ui/button";
 
 const nav = [
-  { to: "/admin", label: "Dashboard", icon: Gauge },
-  { to: "/admin/vehicles", label: "Vehicles", icon: Car },
+  { to: "/admin", label: "My Garage", icon: Gauge },
+  { to: "/admin/working-on", label: "Working On", icon: Activity },
+  { to: "/admin/flips", label: "Flips", icon: BadgeDollarSign },
+  { to: "/admin/inventory", label: "Public Inventory", icon: Car },
   { to: "/admin/expenses", label: "Expenses", icon: Receipt },
   { to: "/admin/repairs", label: "Repairs", icon: Wrench },
   { to: "/admin/analytics", label: "Analytics", icon: BarChart3 },
@@ -78,7 +82,9 @@ export function AdminLayout() {
           <p className="text-xs font-semibold uppercase tracking-[0.22em] text-mirage-muted">
             Garage OS
           </p>
-          <Button variant="ghost" className="ml-auto gap-2" onClick={signOut}><LogOut size={16} /> Sign out</Button>
+          <Button variant="ghost" className="ml-auto gap-2" onClick={signOut}>
+            <LogOut size={16} /> Sign out
+          </Button>
         </div>
         <Outlet />
       </main>
