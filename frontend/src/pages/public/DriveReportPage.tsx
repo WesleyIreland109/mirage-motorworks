@@ -3,25 +3,30 @@ import { Activity, AlertTriangle } from "lucide-react";
 import { useParams } from "react-router-dom";
 import { getDriveReport } from "@/api/client";
 import { Card } from "@/components/ui/card";
+import { dacoitDriveReport } from "@/data/demoDriveReports";
 
 export function DriveReportPage() {
   const { token = "" } = useParams();
+  const preview =
+    token === dacoitDriveReport.publicToken ? dacoitDriveReport : undefined;
   const {
-    data: report,
+    data: remoteReport,
     isLoading,
     isError,
   } = useQuery({
     queryKey: ["drive-report", token],
     queryFn: () => getDriveReport(token),
+    enabled: !preview,
     retry: false,
   });
-  if (isLoading)
+  const report = preview ?? remoteReport;
+  if (!preview && isLoading)
     return (
       <main className="min-h-screen bg-mirage-bg p-8 text-white">
         Loading drive summary…
       </main>
     );
-  if (isError || !report)
+  if ((!preview && isError) || !report)
     return (
       <main className="grid min-h-screen place-items-center bg-mirage-bg p-8 text-white">
         <div className="text-center">
@@ -42,6 +47,12 @@ export function DriveReportPage() {
         <p className="mt-3 text-mirage-muted">
           {report.vehicleLabel} · {new Date(report.startedAt).toLocaleString()}
         </p>
+        {preview && (
+          <div className="mt-6 border border-mirage-cyan/40 bg-mirage-cyan/10 p-4 text-sm text-cyan-50">
+            Private mock report for layout and wording review. It has not been
+            published as a final diagnostic report.
+          </div>
+        )}
         {report.source === "simulator" && (
           <div className="mt-6 border border-amber-300/40 bg-amber-300/10 p-4 text-amber-100">
             Simulator-backed session—this report does not describe a real
@@ -55,14 +66,22 @@ export function DriveReportPage() {
           </div>
           <p className="mt-4 leading-7 text-mirage-muted">{report.overview}</p>
           <ul className="mt-5 space-y-3">
-            {report.observations.map((item) => (
-              <li
-                key={item}
-                className="border-l border-mirage-cyan pl-4 text-sm leading-6"
-              >
-                {item}
-              </li>
-            ))}
+            {report.observations.map((item) => {
+              const [kind, detail] = item.includes(" — ")
+                ? item.split(/ — (.*)/s)
+                : ["OBSERVED", item];
+              return (
+                <li
+                  key={item}
+                  className="grid gap-2 border-l border-mirage-cyan pl-4 text-sm leading-6 sm:grid-cols-[120px_1fr]"
+                >
+                  <span className="font-semibold uppercase tracking-[.12em] text-mirage-cyan">
+                    {kind}
+                  </span>
+                  <span>{detail}</span>
+                </li>
+              );
+            })}
           </ul>
         </Card>
         <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -84,9 +103,9 @@ export function DriveReportPage() {
         </div>
         <p className="mt-8 border-t border-mirage-border pt-5 text-xs leading-5 text-mirage-muted">
           This summary reflects only data reported through the vehicle’s
-          diagnostic interface during one session. It is not a safety
-          inspection, mechanical diagnosis, warranty determination, or
-          substitute for evaluation by a qualified technician.
+          diagnostic interface during the recorded session or sessions. It is
+          not a safety inspection, mechanical diagnosis, warranty determination,
+          or substitute for evaluation by a qualified technician.
         </p>
       </div>
     </main>

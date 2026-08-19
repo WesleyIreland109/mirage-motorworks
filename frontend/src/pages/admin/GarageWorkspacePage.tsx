@@ -44,34 +44,56 @@ type Reading = {
   value?: number;
   source?: string;
   unit?: string;
+  timestamp?: string;
 };
 
 const metricLabels: Record<string, string> = {
   rpm: "Engine speed",
-  speed: "Vehicle speed",
-  coolantTemp: "Coolant temperature",
-  intakeTemp: "Intake temperature",
-  throttlePosition: "Throttle position",
-  engineLoad: "Engine load",
-  fuelLevel: "Fuel level",
-  controlModuleVoltage: "Control-module voltage",
+  vehicle_speed_mph: "Vehicle speed",
+  coolant_temp_f: "Coolant temperature",
+  intake_air_temp_f: "Intake temperature",
+  throttle_percent: "Throttle position",
+  engine_load_percent: "Calculated engine load",
+  fuel_level_percent: "Fuel level",
+  battery_voltage: "Control-module voltage",
+};
+const metricUnits: Record<string, string> = {
+  rpm: "RPM",
+  vehicle_speed_mph: "mph",
+  throttle_percent: "%",
+  engine_load_percent: "%",
+  battery_voltage: "V",
+  coolant_temp_f: "°F",
+  oil_temp_f: "°F",
+  intake_air_temp_f: "°F",
+  provider_latency_ms: "ms",
 };
 
 function summarizeTelemetry(text: string): {
   metrics: MetricSummary[];
   source: SessionImport["source"];
 } {
-  const values = new Map<string, { values: number[]; unit: string }>();
+  const values = new Map<
+    string,
+    { values: number[]; unit: string; timestamps: Set<string> }
+  >();
   const sources = new Set<string>();
   for (const line of text.split("\n")) {
     if (!line.trim()) continue;
     try {
-      const row = JSON.parse(line) as {
-        readings?: Record<string, Reading>;
+      const row = JSON.parse(line) as Record<string, unknown> & {
         adapter?: { port?: string };
       };
       if (row.adapter?.port?.startsWith("sim://")) sources.add("simulator");
-      for (const [key, reading] of Object.entries(row.readings ?? {})) {
+      for (const [key, candidate] of Object.entries(row)) {
+        if (
+          !candidate ||
+          typeof candidate !== "object" ||
+          !("available" in candidate) ||
+          !("value" in candidate)
+        )
+          continue;
+        const reading = candidate as Reading;
         if (reading.source) sources.add(reading.source);
         if (
           reading.available !== false &&
@@ -80,8 +102,12 @@ function summarizeTelemetry(text: string): {
         ) {
           const bucket = values.get(key) ?? {
             values: [],
-            unit: reading.unit ?? "",
+            unit: reading.unit ?? metricUnits[key] ?? "",
+            timestamps: new Set<string>(),
           };
+          const sampleKey = reading.timestamp ?? `${bucket.values.length}`;
+          if (bucket.timestamps.has(sampleKey)) continue;
+          bucket.timestamps.add(sampleKey);
           bucket.values.push(reading.value);
           values.set(key, bucket);
         }
@@ -99,10 +125,11 @@ function summarizeTelemetry(text: string): {
     average: bucket.values.reduce((a, b) => a + b, 0) / bucket.values.length,
     max: Math.max(...bucket.values),
   }));
+  const hasOBD = [...sources].some((source) => source.startsWith("obd"));
   const source =
-    sources.has("simulator") && !sources.has("obd")
+    sources.has("simulator") && !hasOBD
       ? "simulator"
-      : sources.has("obd") || sources.has("vehicle")
+      : hasOBD || sources.has("vehicle")
         ? "vehicle"
         : "unknown";
   return { metrics, source };
