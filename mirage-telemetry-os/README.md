@@ -73,6 +73,21 @@ Use `--max-duration` for a shorter stationary test; values over 15 minutes are r
 bin/mirage --label "stationary check" --max-duration 2m session record
 ```
 
+For passenger-seat testing, keep `make dev` running in one terminal and use the convenience targets in a second:
+
+```bash
+make short-test FRIEND="Alex Smith"  # two minutes maximum
+make record FRIEND="Alex Smith"      # fifteen minutes maximum
+```
+
+Every session is stored under its timestamp-based ID, so repeated recordings from the same vehicle never overwrite each other. Replay accepts a full/partial session ID or a friend/label search. One match is selected automatically; multiple matches print their timestamped IDs:
+
+```bash
+bin/mirage session replay "Alex Smith"
+```
+
+The repository includes zsh completion under `completions/_mirage`; with that directory in `fpath`, `mirage session replay <Tab>` offers every saved timestamp with its label and local recording time.
+
 `vehicle probe` is the first command to run when the physical vLinker FS arrives. It enumerates only platform USB-serial candidates and performs a safe ELM identity probe. Add its observed VID/PID to `config/obd.yaml`. No Internet or Prometheus process is required at runtime.
 
 See [architecture](docs/architecture.md), [offline VIN decoding](docs/offline-vin.md), and [Raspberry Pi notes](docs/raspberry-pi.md).

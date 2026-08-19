@@ -67,11 +67,20 @@ func main() {
 		printURL(*server + "/api/session/status")
 	case "session list":
 		printURL(*server + "/api/sessions")
+	case "session candidates":
+		if err := printSessionCandidates(*server, os.Stdout); err != nil {
+			fatal(err)
+		}
 	case "session replay":
 		if len(args) < 3 {
-			fatal(fmt.Errorf("session replay requires a session id"))
+			fatal(fmt.Errorf("session replay requires a session id or friend/label search"))
 		}
-		post(*server+"/api/session/replay", map[string]any{"id": args[2], "speed": *replaySpeed})
+		selector := strings.Join(args[2:], " ")
+		id, err := resolveSession(*server, selector)
+		if err != nil {
+			fatal(err)
+		}
+		post(*server+"/api/session/replay", map[string]any{"id": id, "speed": *replaySpeed})
 	case "vin decode":
 		if len(args) < 3 {
 			fatal(fmt.Errorf("vin decode requires a VIN"))
@@ -89,7 +98,7 @@ func main() {
 	}
 }
 func usage() {
-	fmt.Fprintln(os.Stderr, "usage: mirage [flags] vehicle watch|probe|raw-probe|bus-scan|uds-sample|inspect [--json]\n       mirage [--server URL] [--label LABEL] [--max-duration 15m] session record\n       mirage [--server URL] [--label LABEL] session start|stop|status|list\n       mirage [--server URL] [--speed N] session replay SESSION_ID\n       mirage [--vin-cache PATH] [--online] vin decode VIN|cache-status")
+	fmt.Fprintln(os.Stderr, "usage: mirage [flags] vehicle watch|probe|raw-probe|bus-scan|uds-sample|inspect [--json]\n       mirage [--server URL] [--label LABEL] [--max-duration 15m] session record\n       mirage [--server URL] [--label LABEL] session start|stop|status|list\n       mirage [--server URL] [--speed N] session replay SESSION_ID_OR_LABEL\n       mirage [--vin-cache PATH] [--online] vin decode VIN|cache-status")
 	os.Exit(2)
 }
 
@@ -607,6 +616,67 @@ func requestJSON(method, url string, body any, target any) (int, []byte, error) 
 		}
 	}
 	return res.StatusCode, data, nil
+}
+
+func listSessions(serverURL string) ([]session.Summary, error) {
+	var sessions []session.Summary
+	status, data, err := requestJSON(http.MethodGet, strings.TrimRight(serverURL, "/")+"/api/sessions", nil, &sessions)
+	if err != nil {
+		return nil, err
+	}
+	if status >= http.StatusMultipleChoices {
+		return nil, fmt.Errorf("HTTP %d: %s", status, strings.TrimSpace(string(data)))
+	}
+	return sessions, nil
+}
+
+func resolveSession(serverURL, selector string) (string, error) {
+	sessions, err := listSessions(serverURL)
+	if err != nil {
+		return "", fmt.Errorf("list sessions: %w", err)
+	}
+	query := strings.ToLower(strings.TrimSpace(selector))
+	if query == "" {
+		return "", errors.New("session selector cannot be empty")
+	}
+	for _, candidate := range sessions {
+		if strings.EqualFold(candidate.ID, query) {
+			return candidate.ID, nil
+		}
+	}
+	matches := make([]session.Summary, 0)
+	for _, candidate := range sessions {
+		if strings.HasPrefix(strings.ToLower(candidate.ID), query) || strings.Contains(strings.ToLower(candidate.Label), query) {
+			matches = append(matches, candidate)
+		}
+	}
+	if len(matches) == 1 {
+		return matches[0].ID, nil
+	}
+	if len(matches) == 0 {
+		return "", fmt.Errorf("no saved session matches %q; run bin/mirage session list", selector)
+	}
+	var choices strings.Builder
+	fmt.Fprintf(&choices, "multiple saved sessions match %q; choose a timestamped session ID:\n", selector)
+	for _, candidate := range matches {
+		fmt.Fprintf(&choices, "  %s  %s  %s\n", candidate.ID, candidate.StartedAt.Local().Format("2006-01-02 15:04:05"), candidate.Label)
+	}
+	return "", errors.New(strings.TrimRight(choices.String(), "\n"))
+}
+
+func printSessionCandidates(serverURL string, out io.Writer) error {
+	sessions, err := listSessions(serverURL)
+	if err != nil {
+		return err
+	}
+	for _, candidate := range sessions {
+		if candidate.State != "complete" {
+			continue
+		}
+		description := strings.NewReplacer(":", "-", "\n", " ", "\r", " ").Replace(candidate.Label)
+		fmt.Fprintf(out, "%s:%s // %s\n", candidate.ID, description, candidate.StartedAt.Local().Format("2006-01-02 15:04:05"))
+	}
+	return nil
 }
 func printURL(url string) {
 	res, err := http.Get(url)

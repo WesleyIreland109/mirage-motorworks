@@ -1,0 +1,37 @@
+#compdef mirage
+
+_mirage() {
+  local context state line
+  typeset -A opt_args
+
+  _arguments -C \
+    '--server[telemetry service URL]:URL:' \
+    '--label[drive-session label]:label:' \
+    '--max-duration[recording limit, maximum 15m]:duration:' \
+    '--speed[replay speed multiplier]:speed:' \
+    '1:command:(vehicle session vin)' \
+    '2:action:->action' \
+    '3:session:->session' \
+    '*::argument:->args'
+
+  case "$state" in
+    action)
+      case "${words[2]}" in
+        session) _values 'session action' record start stop status list replay ;;
+        vehicle) _values 'vehicle action' watch probe raw-probe bus-scan uds-sample inspect ;;
+        vin) _values 'VIN action' decode cache-status ;;
+      esac
+      ;;
+    session|args)
+      if [[ "${words[2]}" == session && "${words[3]}" == replay ]]; then
+        local -a recordings
+        local mirage_command="${MIRAGE_ROOT:-.}/bin/mirage"
+        [[ -x "$mirage_command" ]] || mirage_command="${words[1]}"
+        recordings=("${(@f)$($mirage_command --server "${opt_args[--server]:-http://127.0.0.1:8080}" session candidates 2>/dev/null)}")
+        _describe 'timestamped recordings' recordings
+      fi
+      ;;
+  esac
+}
+
+_mirage "$@"

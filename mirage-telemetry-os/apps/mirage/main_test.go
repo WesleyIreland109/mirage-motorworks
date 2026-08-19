@@ -87,3 +87,29 @@ func TestRecordSessionRejectsMoreThanFifteenMinutes(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
+
+func TestResolveSessionByFriendName(t *testing.T) {
+	started := time.Date(2026, time.August, 19, 8, 30, 0, 0, time.UTC)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode([]session.Summary{{ID: "20260819T083000.000Z", Label: "Alex // DRIVE", State: "complete", StartedAt: started}})
+	}))
+	defer server.Close()
+	id, err := resolveSession(server.URL, "Alex")
+	if err != nil || id != "20260819T083000.000Z" {
+		t.Fatalf("id=%q err=%v", id, err)
+	}
+}
+
+func TestResolveSessionListsMultipleTimestampedChoices(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode([]session.Summary{
+			{ID: "20260819T083000.000Z", Label: "Alex // SHORT TEST", State: "complete", StartedAt: time.Now()},
+			{ID: "20260819T090000.000Z", Label: "Alex // DRIVE", State: "complete", StartedAt: time.Now()},
+		})
+	}))
+	defer server.Close()
+	_, err := resolveSession(server.URL, "Alex")
+	if err == nil || !strings.Contains(err.Error(), "20260819T083000.000Z") || !strings.Contains(err.Error(), "20260819T090000.000Z") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}

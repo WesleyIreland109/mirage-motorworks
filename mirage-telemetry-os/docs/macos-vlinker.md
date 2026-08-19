@@ -34,6 +34,25 @@ bin/mirage session list
 bin/mirage session replay SESSION_ID
 ```
 
+The friend-car convenience flow is:
+
+```bash
+# Terminal 1
+make dev
+
+# Terminal 2
+make short-test FRIEND="Alex Smith"
+make record FRIEND="Alex Smith"
+
+# Later: resolves automatically when only one recording matches
+bin/mirage session replay "Alex Smith"
+
+# Or use timestamp-aware completion
+mirage session replay <Tab>
+```
+
+Each recording directory is named with a UTC timestamp ID. Multiple short tests and drives for the same friend are therefore retained independently.
+
 Sessions contain timestamped normalized telemetry and raw OBD JSONL with source and availability metadata. VIN and GPS are redacted. Keep the first tests stationary, secure the laptop, and never interact with it while driving.
 
 ## Vehicle compatibility test
