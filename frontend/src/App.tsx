@@ -15,6 +15,7 @@ import { LoginPage } from "@/pages/admin/LoginPage";
 import { RequireAuth } from "@/components/RequireAuth";
 import { useQuery } from "@tanstack/react-query";
 import { currentUser } from "@/api/client";
+import { DacoitDriveReportPage } from "@/pages/public/DacoitDriveReportPage";
 
 function HomeRoute() {
   const [searchParams] = useSearchParams();
@@ -28,7 +29,11 @@ function HomeRoute() {
 }
 
 export function App() {
-  const { data: user } = useQuery({ queryKey: ["auth-user"], queryFn: currentUser, retry: false });
+  const { data: user } = useQuery({
+    queryKey: ["auth-user"],
+    queryFn: currentUser,
+    retry: false,
+  });
   return (
     <Routes>
       <Route element={<PublicLayout />}>
@@ -40,16 +45,35 @@ export function App() {
         <Route path="journal" element={<JournalPage />} />
       </Route>
       <Route path="updates/:slug" element={<VehicleUpdatePage />} />
+      <Route
+        path="drive-reports/dacoit-20260819"
+        element={<DacoitDriveReportPage />}
+      />
       <Route path="login" element={<LoginPage signedIn={Boolean(user)} />} />
       <Route element={<RequireAuth />}>
         <Route path="admin" element={<AdminLayout />}>
           <Route index element={<AdminDashboard />} />
           <Route path="vehicles" element={<AdminDashboard />} />
-          <Route path="expenses" element={<PlaceholderAdminPage title="Expenses" />} />
-          <Route path="repairs" element={<PlaceholderAdminPage title="Repairs" />} />
-          <Route path="analytics" element={<PlaceholderAdminPage title="Analytics" />} />
-          <Route path="documents" element={<PlaceholderAdminPage title="Documents" />} />
-          <Route path="settings" element={<PlaceholderAdminPage title="Settings" />} />
+          <Route
+            path="expenses"
+            element={<PlaceholderAdminPage title="Expenses" />}
+          />
+          <Route
+            path="repairs"
+            element={<PlaceholderAdminPage title="Repairs" />}
+          />
+          <Route
+            path="analytics"
+            element={<PlaceholderAdminPage title="Analytics" />}
+          />
+          <Route
+            path="documents"
+            element={<PlaceholderAdminPage title="Documents" />}
+          />
+          <Route
+            path="settings"
+            element={<PlaceholderAdminPage title="Settings" />}
+          />
         </Route>
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
