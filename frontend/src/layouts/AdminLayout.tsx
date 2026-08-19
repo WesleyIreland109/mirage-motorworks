@@ -12,27 +12,31 @@ import {
   BadgeDollarSign,
 } from "lucide-react";
 import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { Logo } from "@/components/Logo";
-import { logout } from "@/api/client";
+import { currentUser, logout } from "@/api/client";
 import { Button } from "@/components/ui/button";
 
-const nav = [
+const sharedNav = [
   { to: "/admin", label: "My Garage", icon: Gauge },
   { to: "/admin/working-on", label: "Working On", icon: Activity },
+  { to: "/admin/documents", label: "Documents", icon: FileText },
+  { to: "/admin/settings", label: "Profile", icon: Settings },
+];
+const adminNav = [
   { to: "/admin/flips", label: "Flips", icon: BadgeDollarSign },
   { to: "/admin/inventory", label: "Public Inventory", icon: Car },
   { to: "/admin/expenses", label: "Expenses", icon: Receipt },
   { to: "/admin/repairs", label: "Repairs", icon: Wrench },
   { to: "/admin/analytics", label: "Analytics", icon: BarChart3 },
-  { to: "/admin/documents", label: "Documents", icon: FileText },
-  { to: "/admin/settings", label: "Settings", icon: Settings },
 ];
 
 export function AdminLayout() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { data: user } = useQuery({ queryKey: ["auth-user"], queryFn: currentUser, retry: false });
+  const nav = user?.role === "admin" ? [...sharedNav.slice(0, 2), ...adminNav, ...sharedNav.slice(2)] : sharedNav;
 
   async function signOut() {
     await logout();

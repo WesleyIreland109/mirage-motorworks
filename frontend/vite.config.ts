@@ -4,7 +4,7 @@ import path from "node:path";
 
 export default defineConfig({
   plugins: [react()],
-  base: process.env.GITHUB_PAGES === "true" ? "/mirage-motorworks/" : "/",
+  base: process.env.VITE_BASE_PATH || (process.env.GITHUB_PAGES === "true" ? "/mirage-motorworks/" : "/"),
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),

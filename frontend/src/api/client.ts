@@ -10,7 +10,7 @@ import type {
 } from "@/types/fleet";
 
 const API_BASE_URL =
-  (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? "/api";
+  (import.meta.env.VITE_API_BASE_URL as string | undefined)?.trim() || "/api";
 
 export interface AuthUser {
   id: string;
@@ -18,6 +18,8 @@ export interface AuthUser {
   displayName: string;
   role: string;
 }
+
+export interface CustomerProfile { user: AuthUser; phone: string; preferredContact: "email" | "phone" | "text"; marketingOptIn: boolean; }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`, {
@@ -49,6 +51,16 @@ export async function login(
     body: JSON.stringify({ email, password }),
   });
   return response.user;
+}
+
+export async function register(email: string, password: string, displayName: string): Promise<AuthUser> {
+  const response = await request<{ user: AuthUser }>("/auth/register", { method: "POST", body: JSON.stringify({ email, password, displayName }) });
+  return response.user;
+}
+
+export async function getProfile(): Promise<CustomerProfile> { return request<CustomerProfile>("/auth/profile"); }
+export async function updateProfile(input: Omit<CustomerProfile, "user"> & { displayName: string }): Promise<CustomerProfile> {
+  return request<CustomerProfile>("/auth/profile", { method: "PUT", body: JSON.stringify(input) });
 }
 
 export async function currentUser(): Promise<AuthUser | null> {

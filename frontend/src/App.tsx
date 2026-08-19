@@ -14,6 +14,8 @@ import { JournalPage } from "@/pages/public/JournalPage";
 import { VehicleUpdatePage } from "@/pages/public/VehicleUpdatePage";
 import { VehicleDetailsPage } from "@/pages/public/VehicleDetailsPage";
 import { LoginPage } from "@/pages/admin/LoginPage";
+import { RegisterPage } from "@/pages/admin/RegisterPage";
+import { ProfilePage } from "@/pages/admin/ProfilePage";
 import { RequireAuth } from "@/components/RequireAuth";
 import { useQuery } from "@tanstack/react-query";
 import { currentUser } from "@/api/client";
@@ -48,6 +50,7 @@ export function App() {
       <Route path="updates/:slug" element={<VehicleUpdatePage />} />
       <Route path="drive-reports/:token" element={<DriveReportPage />} />
       <Route path="login" element={<LoginPage signedIn={Boolean(user)} />} />
+      <Route path="register" element={<RegisterPage signedIn={Boolean(user)} />} />
       <Route element={<RequireAuth />}>
         <Route path="admin" element={<AdminLayout />}>
           <Route index element={<AdminDashboard />} />
@@ -82,7 +85,7 @@ export function App() {
           />
           <Route
             path="settings"
-            element={<PlaceholderAdminPage title="Settings" />}
+            element={<ProfilePage />}
           />
         </Route>
       </Route>

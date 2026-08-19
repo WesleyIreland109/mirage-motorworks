@@ -43,7 +43,7 @@ export function PublicLayout() {
               to="/admin"
               className="border border-mirage-border px-3 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-mirage-muted transition hover:border-mirage-cyan hover:text-white"
             >
-              Garage OS
+              Account
             </Link>
           </nav>
           <button
@@ -85,7 +85,7 @@ export function PublicLayout() {
               onClick={closeMobileMenu}
               className="mt-2 border border-mirage-border px-4 py-3 text-sm font-semibold uppercase tracking-[0.2em] text-mirage-muted transition hover:border-mirage-cyan hover:bg-white/[0.06] hover:text-white"
             >
-              Garage OS
+              Account
             </Link>
           </nav>
         </div>

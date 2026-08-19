@@ -73,6 +73,71 @@ class AuthRepository(private val database: Database) {
         return CreatedSession(token, record.first)
     }
 
+    fun register(request: RegisterRequest): CreatedSession? {
+        val email = request.email.trim().lowercase()
+        val name = request.displayName.trim()
+        require(email.matches(Regex("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$")))
+        require(name.length in 2..80)
+        require(request.password.length >= 12)
+        require(request.password.any(Char::isUpperCase) && request.password.any(Char::isLowerCase) && request.password.any(Char::isDigit))
+
+        val created = database.withConnection { connection ->
+            connection.autoCommit = false
+            try {
+                val id = UUID.randomUUID()
+                connection.prepareStatement(
+                    "INSERT INTO users (id, email, display_name, password_hash, role) VALUES (?, ?, ?, ?, 'customer') ON CONFLICT (email) DO NOTHING"
+                ).use { statement ->
+                    statement.setObject(1, id); statement.setString(2, email); statement.setString(3, name)
+                    statement.setString(4, PasswordHasher.hash(request.password))
+                    if (statement.executeUpdate() == 0) return@withConnection false
+                }
+                connection.prepareStatement("INSERT INTO customer_profiles (user_id) VALUES (?)").use {
+                    it.setObject(1, id); it.executeUpdate()
+                }
+                connection.commit(); true
+            } catch (exception: Exception) {
+                connection.rollback(); throw exception
+            } finally { connection.autoCommit = true }
+        }
+        return if (created) login(email, request.password) else null
+    }
+
+    fun profile(userId: String): CustomerProfile? = database.withConnection { connection ->
+        connection.prepareStatement(
+            """SELECT u.id, u.email, u.display_name, u.role, p.phone, p.preferred_contact, p.marketing_opt_in
+            FROM users u LEFT JOIN customer_profiles p ON p.user_id = u.id WHERE u.id = ?::uuid"""
+        ).use { statement ->
+            statement.setString(1, userId); statement.executeQuery().use { result ->
+                if (!result.next()) null else CustomerProfile(
+                    AuthUser(result.getString("id"), result.getString("email"), result.getString("display_name"), result.getString("role")),
+                    result.getString("phone") ?: "", result.getString("preferred_contact") ?: "email", result.getBoolean("marketing_opt_in")
+                )
+            }
+        }
+    }
+
+    fun updateProfile(userId: String, update: ProfileUpdate): CustomerProfile? {
+        require(update.displayName.trim().length in 2..80)
+        require(update.phone.length <= 40 && update.preferredContact in setOf("email", "phone", "text"))
+        database.withConnection { connection ->
+            connection.autoCommit = false
+            try {
+                connection.prepareStatement("UPDATE users SET display_name = ?, updated_at = NOW() WHERE id = ?::uuid").use {
+                    it.setString(1, update.displayName.trim()); it.setString(2, userId); it.executeUpdate()
+                }
+                connection.prepareStatement(
+                    """INSERT INTO customer_profiles (user_id, phone, preferred_contact, marketing_opt_in)
+                    VALUES (?::uuid, ?, ?, ?) ON CONFLICT (user_id) DO UPDATE SET
+                    phone = EXCLUDED.phone, preferred_contact = EXCLUDED.preferred_contact,
+                    marketing_opt_in = EXCLUDED.marketing_opt_in, updated_at = NOW()"""
+                ).use { it.setString(1, userId); it.setString(2, update.phone.trim()); it.setString(3, update.preferredContact); it.setBoolean(4, update.marketingOptIn); it.executeUpdate() }
+                connection.commit()
+            } catch (exception: Exception) { connection.rollback(); throw exception } finally { connection.autoCommit = true }
+        }
+        return profile(userId)
+    }
+
     fun findUserByToken(token: String?): AuthUser? {
         if (token.isNullOrBlank()) return null
         return database.withConnection { connection ->

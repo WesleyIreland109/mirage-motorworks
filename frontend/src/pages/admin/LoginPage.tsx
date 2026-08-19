@@ -1,5 +1,5 @@
 import { FormEvent, useState } from "react";
-import { Navigate, useLocation, useNavigate } from "react-router-dom";
+import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 
 import { login } from "@/api/client";
@@ -54,6 +54,7 @@ export function LoginPage({ signedIn }: { signedIn: boolean }) {
           {error && <p className="text-sm text-mirage-orange" role="alert">{error}</p>}
           <Button className="w-full" type="submit" disabled={submitting}>{submitting ? "Signing in…" : "Sign in"}</Button>
         </form>
+        <p className="mt-6 text-center text-sm text-mirage-muted">New to Mirage? <Link className="text-mirage-cyan" to="/register">Create an account</Link></p>
       </Card>
     </main>
   );

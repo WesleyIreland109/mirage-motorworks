@@ -14,6 +14,7 @@ import io.ktor.server.plugins.callloging.CallLogging
 import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.server.plugins.cors.routing.CORS
 import io.ktor.server.request.receive
+import io.ktor.server.plugins.origin
 import io.ktor.server.response.respond
 import io.ktor.server.routing.delete
 import io.ktor.server.routing.get
@@ -37,6 +38,7 @@ fun main() {
 }
 
 fun Application.module(config: AppConfig, vehicles: VehicleRepository, auth: AuthRepository, fleet: FleetRepository, telemetry: TelemetryRepository) {
+    val authLimiter = AuthRateLimiter()
     install(CallLogging)
     install(ContentNegotiation) {
         json(
@@ -66,22 +68,35 @@ fun Application.module(config: AppConfig, vehicles: VehicleRepository, auth: Aut
         route("/api/auth") {
             post("/login") {
                 val request = call.receive<LoginRequest>()
+                val rateKey = "login:${call.request.origin.remoteHost}:${request.email.trim().lowercase()}"
+                if (!authLimiter.allow(rateKey)) {
+                    call.respond(HttpStatusCode.TooManyRequests, mapOf("message" to "Too many attempts. Try again later."))
+                    return@post
+                }
                 val session = auth.login(request.email, request.password)
                 if (session == null) {
                     call.respond(HttpStatusCode.Unauthorized, mapOf("message" to "Invalid email or password"))
                 } else {
-                    call.response.cookies.append(
-                        Cookie(
-                            name = SESSION_COOKIE,
-                            value = session.token,
-                            path = "/",
-                            httpOnly = true,
-                            secure = config.sessionCookieSecure,
-                            maxAge = 30 * 24 * 60 * 60,
-                            extensions = mapOf("SameSite" to "Strict")
-                        )
-                    )
+                    authLimiter.reset(rateKey)
+                    call.setSessionCookie(config, session.token)
                     call.respond(AuthResponse(session.user))
+                }
+            }
+
+            post("/register") {
+                if (!config.publicRegistrationEnabled) {
+                    call.respond(HttpStatusCode.NotFound, mapOf("message" to "Registration is unavailable")); return@post
+                }
+                val request = call.receive<RegisterRequest>()
+                val rateKey = "register:${call.request.origin.remoteHost}"
+                if (!authLimiter.allow(rateKey)) {
+                    call.respond(HttpStatusCode.TooManyRequests, mapOf("message" to "Too many attempts. Try again later.")); return@post
+                }
+                val session = runCatching { auth.register(request) }.getOrNull()
+                if (session == null) {
+                    call.respond(HttpStatusCode.BadRequest, mapOf("message" to "Unable to create account. Check the details or sign in."))
+                } else {
+                    authLimiter.reset(rateKey); call.setSessionCookie(config, session.token); call.respond(HttpStatusCode.Created, AuthResponse(session.user))
                 }
             }
 
@@ -95,6 +110,17 @@ fun Application.module(config: AppConfig, vehicles: VehicleRepository, auth: Aut
                 auth.logout(call.request.cookies[SESSION_COOKIE])
                 call.response.cookies.appendExpired(SESSION_COOKIE, path = "/")
                 call.respond(HttpStatusCode.NoContent)
+            }
+
+            get("/profile") {
+                val user = call.authenticatedUser(auth) ?: return@get
+                val profile = auth.profile(user.id)
+                if (profile == null) call.respond(HttpStatusCode.NotFound) else call.respond(profile)
+            }
+            put("/profile") {
+                val user = call.authenticatedUser(auth) ?: return@put
+                val profile = runCatching { auth.updateProfile(user.id, call.receive<ProfileUpdate>()) }.getOrNull()
+                if (profile == null) call.respond(HttpStatusCode.BadRequest, mapOf("message" to "Check the profile details")) else call.respond(profile)
             }
         }
 
@@ -114,13 +140,13 @@ fun Application.module(config: AppConfig, vehicles: VehicleRepository, auth: Aut
             }
 
             post {
-                if (!call.requireUser(auth)) return@post
+                if (!call.requireAdmin(auth)) return@post
                 val input = call.receive<VehicleInput>()
                 call.respond(HttpStatusCode.Created, vehicles.create(input))
             }
 
             put("/{id}") {
-                if (!call.requireUser(auth)) return@put
+                if (!call.requireAdmin(auth)) return@put
                 val id = call.parameters["id"].orEmpty()
                 val input = call.receive<VehicleInput>()
                 val vehicle = vehicles.update(id, input)
@@ -132,7 +158,7 @@ fun Application.module(config: AppConfig, vehicles: VehicleRepository, auth: Aut
             }
 
             delete("/{id}") {
-                if (!call.requireUser(auth)) return@delete
+                if (!call.requireAdmin(auth)) return@delete
                 val id = call.parameters["id"].orEmpty()
                 if (vehicles.delete(id)) {
                     call.respond(HttpStatusCode.NoContent)
@@ -199,6 +225,19 @@ private suspend fun io.ktor.server.application.ApplicationCall.requireUser(auth:
     if (auth.findUserByToken(request.cookies[SESSION_COOKIE]) != null) return true
     respond(HttpStatusCode.Unauthorized, mapOf("message" to "Authentication required"))
     return false
+}
+
+private suspend fun io.ktor.server.application.ApplicationCall.requireAdmin(auth: AuthRepository): Boolean {
+    val user = auth.findUserByToken(request.cookies[SESSION_COOKIE])
+    if (user?.role == "admin") return true
+    respond(if (user == null) HttpStatusCode.Unauthorized else HttpStatusCode.Forbidden, mapOf("message" to "Administrator access required"))
+    return false
+}
+
+private fun io.ktor.server.application.ApplicationCall.setSessionCookie(config: AppConfig, token: String) {
+    response.cookies.append(Cookie(name = SESSION_COOKIE, value = token, path = "/", httpOnly = true,
+        secure = config.sessionCookieSecure, maxAge = 30 * 24 * 60 * 60,
+        extensions = mapOf("SameSite" to config.sessionCookieSameSite)))
 }
 
 private suspend fun io.ktor.server.application.ApplicationCall.authenticatedUser(auth: AuthRepository): AuthUser? {

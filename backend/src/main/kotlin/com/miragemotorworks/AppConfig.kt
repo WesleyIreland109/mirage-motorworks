@@ -7,6 +7,8 @@ data class AppConfig(
     val databaseUser: String = System.getenv("DATABASE_USER") ?: "mirage",
     val databasePassword: String = System.getenv("DATABASE_PASSWORD") ?: "mirage",
     val sessionCookieSecure: Boolean = System.getenv("SESSION_COOKIE_SECURE")?.toBooleanStrictOrNull() ?: false,
+    val sessionCookieSameSite: String = System.getenv("SESSION_COOKIE_SAME_SITE") ?: "Strict",
+    val publicRegistrationEnabled: Boolean = System.getenv("PUBLIC_REGISTRATION_ENABLED")?.toBooleanStrictOrNull() ?: false,
     val bootstrapAdminEmail: String? = System.getenv("BOOTSTRAP_ADMIN_EMAIL")?.trim()?.lowercase()?.ifEmpty { null },
     val bootstrapAdminPassword: String? = System.getenv("BOOTSTRAP_ADMIN_PASSWORD")?.ifEmpty { null },
     val corsAllowedOrigins: List<String> = (System.getenv("CORS_ALLOWED_ORIGINS")

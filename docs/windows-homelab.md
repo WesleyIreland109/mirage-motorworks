@@ -4,6 +4,10 @@ Garage OS is served only on the Windows PC's Tailscale address at port 8088.
 PostgreSQL and the Ktor backend have no host ports and are reachable only by
 the web proxy inside Docker.
 
+For public customer accounts, the web proxy also listens on Windows loopback at
+`127.0.0.1:8089`. This port is not reachable from the LAN or Internet directly;
+it is the origin target for Cloudflare Tunnel.
+
 ## First deployment
 
 Open PowerShell and work from a normal user-owned folder, not `System32`:
@@ -62,3 +66,34 @@ docker compose -f docker-compose.homelab.yml down
 ```
 
 Do not add `-v` to `down`; that would remove the PostgreSQL volume.
+
+## Public customer API
+
+Do not forward a router port. Put the public website on a custom domain and
+publish an API subdomain through Cloudflare Tunnel, such as:
+
+```text
+Website: https://www.example.com      (GitHub Pages)
+API:     https://api.example.com      (Cloudflare Tunnel)
+Origin:  http://127.0.0.1:8089        (Windows only)
+```
+
+Set these values in `.env`:
+
+```dotenv
+PUBLIC_SITE_ORIGIN=https://www.example.com
+PUBLIC_REGISTRATION_ENABLED=true
+SESSION_COOKIE_SECURE=true
+SESSION_COOKIE_SAME_SITE=Strict
+```
+
+In the GitHub repository, create an Actions variable named
+`MIRAGE_API_BASE_URL` with value `https://api.example.com/api`, then redeploy
+GitHub Pages. If Pages uses a custom domain, also set `MIRAGE_BASE_PATH` to `/`.
+The website and API should share the same registrable domain so
+the session remains a first-party cookie.
+
+Install the named Cloudflare Tunnel as a Windows service using the command
+shown by Cloudflare's tunnel dashboard, then configure its published
+application route to use `http://127.0.0.1:8089`. Never expose ports 5432 or
+8080 and never commit the tunnel token.

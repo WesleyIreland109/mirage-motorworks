@@ -28,6 +28,8 @@ jobs:
       - run: npm run build
         env:
           GITHUB_PAGES: "true"
+          VITE_API_BASE_URL: ${{ vars.MIRAGE_API_BASE_URL }}
+          VITE_BASE_PATH: ${{ vars.MIRAGE_BASE_PATH }}
       - run: cp frontend/dist/index.html frontend/dist/404.html
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
