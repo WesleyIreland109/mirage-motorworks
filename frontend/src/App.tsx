@@ -19,6 +19,7 @@ import { ProfilePage } from "@/pages/admin/ProfilePage";
 import { RequireAuth } from "@/components/RequireAuth";
 import { useQuery } from "@tanstack/react-query";
 import { currentUser } from "@/api/client";
+import { DacoitDriveReportPage } from "@/pages/public/DacoitDriveReportPage";
 
 function HomeRoute() {
   const [searchParams] = useSearchParams();
@@ -48,6 +49,10 @@ export function App() {
         <Route path="journal" element={<JournalPage />} />
       </Route>
       <Route path="updates/:slug" element={<VehicleUpdatePage />} />
+      <Route
+        path="drive-reports/dacoit-20260819"
+        element={<DacoitDriveReportPage />}
+      />
       <Route path="drive-reports/:token" element={<DriveReportPage />} />
       <Route path="login" element={<LoginPage signedIn={Boolean(user)} />} />
       <Route path="register" element={<RegisterPage signedIn={Boolean(user)} />} />
