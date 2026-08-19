@@ -58,13 +58,19 @@ bin/mirage vehicle inspect
 bin/mirage vehicle inspect --json
 bin/mirage --vehicle "2026 Honda HR-V" --state engine-running vehicle raw-probe
 bin/mirage --vehicle "2026 Honda HR-V" --duration 2m vehicle uds-sample
-bin/mirage --label "morning commute" session start
-bin/mirage session status
-bin/mirage session stop
+bin/mirage --label "friend car dry run" session record
 bin/mirage session list
 bin/mirage --speed 4 session replay SESSION_ID
 bin/mirage --online vin decode VIN_HERE
 bin/mirage vin cache-status
+```
+
+`session record` is the preferred drive workflow. It records for at most 15 minutes and finalizes the summary, normalized telemetry, and raw OBD files when the limit is reached or `Ctrl+C` is pressed. If vehicle attachment already started an automatic session, the command supervises and finalizes that session instead of discarding it. The telemetry service also finalizes an active session during graceful shutdown.
+
+Use `--max-duration` for a shorter stationary test; values over 15 minutes are rejected:
+
+```bash
+bin/mirage --label "stationary check" --max-duration 2m session record
 ```
 
 `vehicle probe` is the first command to run when the physical vLinker FS arrives. It enumerates only platform USB-serial candidates and performs a safe ELM identity probe. Add its observed VID/PID to `config/obd.yaml`. No Internet or Prometheus process is required at runtime.

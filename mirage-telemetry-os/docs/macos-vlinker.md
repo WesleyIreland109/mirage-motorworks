@@ -18,16 +18,23 @@ If no USB serial device appears, do not install a guessed driver. Open System In
 
 After attachment, Mirage tries classic SAE J1979 followed by SAE J1979-2 OBD-on-UDS. Real readings replace simulator output only after the ECU answers. Unsupported values remain unavailable rather than falling back to fake numbers. Polling currently covers RPM, speed, throttle, manifold pressure/derived boost, coolant, intake air, module voltage, engine load, oil temperature, lambda/AFR, fuel level, and ignition timing when the ECU reports support.
 
-Start a normalized capture before a drive or stationary test:
+Start a supervised normalized capture before a drive or stationary test:
 
 ```bash
-mirage-capture-start
-# reproduce the behavior
-mirage-capture-stop
-ls -lt "$MIRAGE_ROOT/captures"
+cd "$MIRAGE_ROOT"
+bin/mirage --label "friend vehicle dry run" session record
 ```
 
-Captures are timestamped JSONL files with source and availability metadata. VIN and GPS are redacted. Keep the first tests stationary, secure the laptop, and never interact with it while driving.
+The command stops automatically after 15 minutes. Pressing `Ctrl+C` sooner safely finalizes the recording and prints its session ID, path, counts, and replay command. Do not force-quit the terminal or disconnect power while it says `FINALIZING`.
+
+After parking, list or replay the saved session:
+
+```bash
+bin/mirage session list
+bin/mirage session replay SESSION_ID
+```
+
+Sessions contain timestamped normalized telemetry and raw OBD JSONL with source and availability metadata. VIN and GPS are redacted. Keep the first tests stationary, secure the laptop, and never interact with it while driving.
 
 ## Vehicle compatibility test
 

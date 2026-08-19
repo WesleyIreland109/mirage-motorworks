@@ -10,13 +10,16 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/mirage-motorworks/telemetry-os/internal/attach"
 	"github.com/mirage-motorworks/telemetry-os/internal/discovery"
 	"github.com/mirage-motorworks/telemetry-os/internal/obd"
+	"github.com/mirage-motorworks/telemetry-os/internal/session"
 	"github.com/mirage-motorworks/telemetry-os/internal/transport"
 	"github.com/mirage-motorworks/telemetry-os/internal/vehicle"
 )
@@ -27,6 +30,7 @@ func main() {
 	vehicleState := flag.String("state", "engine-running", "vehicle state: engine-running, ignition-on, or accessory")
 	sampleDuration := flag.Duration("duration", 2*time.Minute, "duration for a read-only vehicle sample")
 	sessionLabel := flag.String("label", "", "drive session label")
+	maxSessionDuration := flag.Duration("max-duration", 15*time.Minute, "maximum supervised drive session duration (up to 15 minutes)")
 	replaySpeed := flag.Float64("speed", 1, "session replay speed multiplier")
 	vinCache := flag.String("vin-cache", "data/vin-cache.json", "private local VIN decoder cache")
 	vpicDatabase := flag.String("vpic-database", "", "local NHTSA vPIC PostgreSQL URL")
@@ -51,6 +55,12 @@ func main() {
 		inspect(*server, len(args) > 2 && args[2] == "--json")
 	case "session start", "capture start":
 		post(*server+"/api/session/start", map[string]string{"label": *sessionLabel})
+	case "session record", "capture record":
+		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+		defer stop()
+		if err := recordSession(ctx, *server, *sessionLabel, *maxSessionDuration, os.Stdout); err != nil {
+			fatal(err)
+		}
 	case "session stop", "capture stop":
 		post(*server+"/api/session/stop", nil)
 	case "session status":
@@ -79,7 +89,7 @@ func main() {
 	}
 }
 func usage() {
-	fmt.Fprintln(os.Stderr, "usage: mirage [flags] vehicle watch|probe|raw-probe|bus-scan|uds-sample|inspect [--json]\n       mirage [--server URL] [--label LABEL] session start|stop|status|list\n       mirage [--server URL] [--speed N] session replay SESSION_ID\n       mirage [--vin-cache PATH] [--online] vin decode VIN|cache-status")
+	fmt.Fprintln(os.Stderr, "usage: mirage [flags] vehicle watch|probe|raw-probe|bus-scan|uds-sample|inspect [--json]\n       mirage [--server URL] [--label LABEL] [--max-duration 15m] session record\n       mirage [--server URL] [--label LABEL] session start|stop|status|list\n       mirage [--server URL] [--speed N] session replay SESSION_ID\n       mirage [--vin-cache PATH] [--online] vin decode VIN|cache-status")
 	os.Exit(2)
 }
 
@@ -506,6 +516,97 @@ func post(url string, body any) {
 		fatal(fmt.Errorf("HTTP %d: %s", res.StatusCode, data))
 	}
 	fmt.Print(string(data))
+}
+
+func recordSession(ctx context.Context, serverURL, label string, duration time.Duration, out io.Writer) error {
+	if duration <= 0 || duration > 15*time.Minute {
+		return errors.New("max-duration must be greater than zero and no more than 15 minutes")
+	}
+	serverURL = strings.TrimRight(serverURL, "/")
+	var active session.Summary
+	status, data, err := requestJSON(http.MethodPost, serverURL+"/api/session/start", map[string]string{"label": label}, &active)
+	if err != nil {
+		return fmt.Errorf("start recording: %w", err)
+	}
+	adopted := false
+	if status == http.StatusConflict {
+		status, _, err = requestJSON(http.MethodGet, serverURL+"/api/session/status", nil, &active)
+		if err != nil || status != http.StatusOK || active.State != "recording" {
+			return fmt.Errorf("start recording: session conflict and no active recording could be supervised")
+		}
+		adopted = true
+	} else if status >= http.StatusMultipleChoices {
+		return fmt.Errorf("start recording: HTTP %d: %s", status, strings.TrimSpace(string(data)))
+	}
+
+	fmt.Fprintln(out, "MIRAGE DRIVE SESSION")
+	fmt.Fprintf(out, "SESSION ID.................. %s\n", active.ID)
+	fmt.Fprintf(out, "LABEL....................... %s\n", active.Label)
+	fmt.Fprintf(out, "MODE........................ %s\n", map[bool]string{true: "SUPERVISING ACTIVE SESSION", false: "NEW SESSION"}[adopted])
+	fmt.Fprintf(out, "MAXIMUM DURATION............ %s\n", duration)
+	fmt.Fprintln(out, "STOP........................ Ctrl+C (data will be finalized)")
+
+	remaining := duration - time.Since(active.StartedAt)
+	if remaining < 0 {
+		remaining = 0
+	}
+	timer := time.NewTimer(remaining)
+	defer timer.Stop()
+	reason := "MAXIMUM DURATION REACHED"
+	select {
+	case <-ctx.Done():
+		reason = "INTERRUPT RECEIVED"
+	case <-timer.C:
+	}
+	fmt.Fprintf(out, "FINALIZING.................. %s\n", reason)
+
+	var stopped session.Summary
+	status, data, err = requestJSON(http.MethodPost, serverURL+"/api/session/stop", nil, &stopped)
+	if err != nil {
+		return fmt.Errorf("finalize recording: %w", err)
+	}
+	if status >= http.StatusMultipleChoices {
+		return fmt.Errorf("finalize recording: HTTP %d: %s", status, strings.TrimSpace(string(data)))
+	}
+	fmt.Fprintf(out, "SAVED....................... %s\n", stopped.Path)
+	fmt.Fprintf(out, "SAMPLES..................... %d\n", stopped.Samples)
+	fmt.Fprintf(out, "OBD REQUESTS................ %d (%d errors)\n", stopped.OBDRequests, stopped.OBDErrors)
+	fmt.Fprintf(out, "DURATION.................... %s\n", time.Duration(stopped.DurationMS)*time.Millisecond)
+	fmt.Fprintf(out, "REPLAY...................... bin/mirage session replay %s\n", stopped.ID)
+	return nil
+}
+
+func requestJSON(method, url string, body any, target any) (int, []byte, error) {
+	var reader io.Reader
+	if body != nil {
+		data, err := json.Marshal(body)
+		if err != nil {
+			return 0, nil, err
+		}
+		reader = bytes.NewReader(data)
+	}
+	req, err := http.NewRequest(method, url, reader)
+	if err != nil {
+		return 0, nil, err
+	}
+	if body != nil {
+		req.Header.Set("Content-Type", "application/json")
+	}
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return 0, nil, err
+	}
+	defer res.Body.Close()
+	data, err := io.ReadAll(res.Body)
+	if err != nil {
+		return res.StatusCode, nil, err
+	}
+	if target != nil && res.StatusCode < http.StatusMultipleChoices {
+		if err := json.Unmarshal(data, target); err != nil {
+			return res.StatusCode, data, err
+		}
+	}
+	return res.StatusCode, data, nil
 }
 func printURL(url string) {
 	res, err := http.Get(url)

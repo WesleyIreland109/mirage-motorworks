@@ -63,6 +63,13 @@ func main() {
 		}
 	}()
 	<-ctx.Done()
+	if api.ActiveSession() != nil {
+		if stopped, stopErr := api.StopSession(); stopErr != nil {
+			log.Printf("DRIVE SESSION // shutdown finalization failed // %v", stopErr)
+		} else {
+			log.Printf("DRIVE SESSION // shutdown saved // id=%s samples=%d duration=%dms", stopped.ID, stopped.Samples, stopped.DurationMS)
+		}
+	}
 	shutdown, done := context.WithTimeout(context.Background(), 5*time.Second)
 	defer done()
 	_ = httpServer.Shutdown(shutdown)
