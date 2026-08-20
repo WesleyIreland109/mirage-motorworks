@@ -1,4 +1,3 @@
-import { mockVehicles } from "@/data/mockVehicles";
 import type { Vehicle, VehicleInput } from "@/types/vehicle";
 import type {
   DriveReport,
@@ -56,6 +55,14 @@ export async function login(
 export async function register(email: string, password: string, displayName: string): Promise<AuthUser> {
   const response = await request<{ user: AuthUser }>("/auth/register", { method: "POST", body: JSON.stringify({ email, password, displayName }) });
   return response.user;
+}
+
+export async function forgotPassword(email: string): Promise<void> {
+  await request<{ message: string }>("/auth/forgot-password", { method: "POST", body: JSON.stringify({ email }) });
+}
+
+export async function resetPassword(token: string, password: string): Promise<void> {
+  await request<{ message: string }>("/auth/reset-password", { method: "POST", body: JSON.stringify({ token, password }) });
 }
 
 export async function getProfile(): Promise<CustomerProfile> { return request<CustomerProfile>("/auth/profile"); }
@@ -132,27 +139,12 @@ export async function getDriveReport(token: string): Promise<DriveReport> {
   return request<DriveReport>(`/drive-reports/${token}`);
 }
 
-const wait = (ms = 180) =>
-  new Promise((resolve) => window.setTimeout(resolve, ms));
-
 export async function listVehicles(): Promise<Vehicle[]> {
-  try {
-    return await request<Vehicle[]>("/vehicles");
-  } catch {
-    await wait();
-    return API_BASE_URL === "/api" ? [] : mockVehicles;
-  }
+  return request<Vehicle[]>("/vehicles");
 }
 
 export async function getVehicle(slug: string): Promise<Vehicle | undefined> {
-  try {
-    return await request<Vehicle>(`/vehicles/${slug}`);
-  } catch {
-    await wait();
-    return API_BASE_URL === "/api"
-      ? undefined
-      : mockVehicles.find((vehicle) => vehicle.slug === slug);
-  }
+  return request<Vehicle>(`/vehicles/${slug}`);
 }
 
 export async function createVehicle(input: VehicleInput): Promise<Vehicle> {

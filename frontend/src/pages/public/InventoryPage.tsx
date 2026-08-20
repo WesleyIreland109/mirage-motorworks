@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 
 export function InventoryPage() {
   const [query, setQuery] = useState("");
-  const { data: vehicles = [], isLoading } = useQuery({
+  const { data: vehicles = [], isLoading, isError } = useQuery({
     queryKey: ["vehicles"],
     queryFn: listVehicles,
   });
@@ -56,6 +56,16 @@ export function InventoryPage() {
               <VehicleCard key={vehicle.id} vehicle={vehicle} />
             ))}
       </div>
+      {!isLoading && !isError && filtered.length === 0 && (
+        <div className="mt-10 border border-mirage-border bg-mirage-panel p-8 text-center text-mirage-muted">
+          No vehicles currently match this collection.
+        </div>
+      )}
+      {isError && (
+        <div className="mt-10 border border-mirage-orange/30 bg-mirage-orange/10 p-8 text-center text-mirage-orange">
+          Inventory is temporarily unavailable. Please try again shortly.
+        </div>
+      )}
     </main>
   );
 }

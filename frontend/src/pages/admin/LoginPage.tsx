@@ -47,6 +47,7 @@ export function LoginPage({ signedIn }: { signedIn: boolean }) {
             Email
             <Input className="mt-2" type="email" autoComplete="username" required value={email} onChange={(event) => setEmail(event.target.value)} />
           </label>
+          <div className="text-right"><Link className="text-sm text-mirage-cyan" to="/forgot-password">Forgot password?</Link></div>
           <label className="block text-sm font-medium">
             Password
             <Input className="mt-2" type="password" autoComplete="current-password" required value={password} onChange={(event) => setPassword(event.target.value)} />

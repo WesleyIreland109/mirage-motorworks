@@ -9,6 +9,9 @@ data class AppConfig(
     val sessionCookieSecure: Boolean = System.getenv("SESSION_COOKIE_SECURE")?.toBooleanStrictOrNull() ?: false,
     val sessionCookieSameSite: String = System.getenv("SESSION_COOKIE_SAME_SITE") ?: "Strict",
     val publicRegistrationEnabled: Boolean = System.getenv("PUBLIC_REGISTRATION_ENABLED")?.toBooleanStrictOrNull() ?: false,
+    val publicSiteUrl: String = System.getenv("PUBLIC_SITE_URL") ?: "http://localhost:5173",
+    val resendApiKey: String? = System.getenv("RESEND_API_KEY")?.ifBlank { null },
+    val emailFrom: String = System.getenv("EMAIL_FROM") ?: "Mirage Motorworks <accounts@miragemw.com>",
     val bootstrapAdminEmail: String? = System.getenv("BOOTSTRAP_ADMIN_EMAIL")?.trim()?.lowercase()?.ifEmpty { null },
     val bootstrapAdminPassword: String? = System.getenv("BOOTSTRAP_ADMIN_PASSWORD")?.ifEmpty { null },
     val corsAllowedOrigins: List<String> = (System.getenv("CORS_ALLOWED_ORIGINS")

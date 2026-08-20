@@ -11,6 +11,7 @@ import javax.crypto.SecretKeyFactory
 import javax.crypto.spec.PBEKeySpec
 
 data class CreatedSession(val token: String, val user: AuthUser)
+data class PasswordResetDelivery(val email: String, val token: String)
 
 class AuthRepository(private val database: Database) {
     private val random = SecureRandom()
@@ -20,7 +21,7 @@ class AuthRepository(private val database: Database) {
         require(email != null && password != null) {
             "BOOTSTRAP_ADMIN_EMAIL and BOOTSTRAP_ADMIN_PASSWORD must be provided together"
         }
-        require(password.length >= 12) { "Bootstrap admin password must be at least 12 characters" }
+        require(PasswordPolicy.isValid(password)) { "Bootstrap admin password does not meet password requirements" }
 
         database.withConnection { connection ->
             connection.prepareStatement("SELECT COUNT(*) FROM users").use { statement ->
@@ -78,8 +79,7 @@ class AuthRepository(private val database: Database) {
         val name = request.displayName.trim()
         require(email.matches(Regex("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$")))
         require(name.length in 2..80)
-        require(request.password.length >= 12)
-        require(request.password.any(Char::isUpperCase) && request.password.any(Char::isLowerCase) && request.password.any(Char::isDigit))
+        require(PasswordPolicy.isValid(request.password))
 
         val created = database.withConnection { connection ->
             connection.autoCommit = false
@@ -138,6 +138,59 @@ class AuthRepository(private val database: Database) {
         return profile(userId)
     }
 
+    fun createPasswordReset(emailInput: String): PasswordResetDelivery? {
+        val email = emailInput.trim().lowercase()
+        val userId = database.withConnection { connection ->
+            connection.prepareStatement("SELECT id FROM users WHERE lower(email) = lower(?)").use { statement ->
+                statement.setString(1, email)
+                statement.executeQuery().use { if (it.next()) it.getString("id") else null }
+            }
+        } ?: return null
+        val tokenBytes = ByteArray(32).also(random::nextBytes)
+        val token = Base64.getUrlEncoder().withoutPadding().encodeToString(tokenBytes)
+        database.withConnection { connection ->
+            connection.autoCommit = false
+            try {
+                connection.prepareStatement("DELETE FROM password_reset_tokens WHERE user_id = ?::uuid OR expires_at <= NOW()").use {
+                    it.setString(1, userId); it.executeUpdate()
+                }
+                connection.prepareStatement("INSERT INTO password_reset_tokens (id, user_id, token_hash, expires_at) VALUES (?, ?::uuid, ?, ?)").use {
+                    it.setObject(1, UUID.randomUUID()); it.setString(2, userId); it.setString(3, tokenHash(token))
+                    it.setTimestamp(4, Timestamp.from(Instant.now().plus(30, ChronoUnit.MINUTES))); it.executeUpdate()
+                }
+                connection.commit()
+            } catch (exception: Exception) { connection.rollback(); throw exception } finally { connection.autoCommit = true }
+        }
+        return PasswordResetDelivery(email, token)
+    }
+
+    fun resetPassword(token: String, password: String): Boolean {
+        require(PasswordPolicy.isValid(password))
+        if (token.isBlank()) return false
+        return database.withConnection { connection ->
+            connection.autoCommit = false
+            try {
+                val row = connection.prepareStatement(
+                    "SELECT id, user_id FROM password_reset_tokens WHERE token_hash = ? AND consumed_at IS NULL AND expires_at > NOW() FOR UPDATE"
+                ).use { statement ->
+                    statement.setString(1, tokenHash(token)); statement.executeQuery().use {
+                        if (it.next()) Pair(it.getString("id"), it.getString("user_id")) else null
+                    }
+                } ?: return@withConnection false
+                connection.prepareStatement("UPDATE users SET password_hash = ?, updated_at = NOW() WHERE id = ?::uuid").use {
+                    it.setString(1, PasswordHasher.hash(password)); it.setString(2, row.second); it.executeUpdate()
+                }
+                connection.prepareStatement("UPDATE password_reset_tokens SET consumed_at = NOW() WHERE id = ?::uuid").use {
+                    it.setString(1, row.first); it.executeUpdate()
+                }
+                connection.prepareStatement("DELETE FROM user_sessions WHERE user_id = ?::uuid").use {
+                    it.setString(1, row.second); it.executeUpdate()
+                }
+                connection.commit(); true
+            } catch (exception: Exception) { connection.rollback(); throw exception } finally { connection.autoCommit = true }
+        }
+    }
+
     fun findUserByToken(token: String?): AuthUser? {
         if (token.isNullOrBlank()) return null
         return database.withConnection { connection ->
@@ -171,6 +224,11 @@ class AuthRepository(private val database: Database) {
     private fun tokenHash(token: String): String = MessageDigest.getInstance("SHA-256")
         .digest(token.toByteArray())
         .joinToString("") { "%02x".format(it) }
+}
+
+object PasswordPolicy {
+    fun isValid(password: String): Boolean = password.length in 12..128 &&
+        password.any(Char::isUpperCase) && password.any(Char::isLowerCase) && password.any(Char::isDigit)
 }
 
 private object PasswordHasher {

@@ -39,6 +39,8 @@ fun main() {
 
 fun Application.module(config: AppConfig, vehicles: VehicleRepository, auth: AuthRepository, fleet: FleetRepository, telemetry: TelemetryRepository) {
     val authLimiter = AuthRateLimiter()
+    val emailService = EmailService(config)
+    val logger = environment.log
     install(CallLogging)
     install(ContentNegotiation) {
         json(
@@ -98,6 +100,30 @@ fun Application.module(config: AppConfig, vehicles: VehicleRepository, auth: Aut
                 } else {
                     authLimiter.reset(rateKey); call.setSessionCookie(config, session.token); call.respond(HttpStatusCode.Created, AuthResponse(session.user))
                 }
+            }
+
+            post("/forgot-password") {
+                val request = call.receive<ForgotPasswordRequest>()
+                val rateKey = "forgot:${call.request.origin.remoteHost}:${request.email.trim().lowercase()}"
+                if (!authLimiter.allow(rateKey)) {
+                    call.respond(HttpStatusCode.TooManyRequests, mapOf("message" to "Too many attempts. Try again later.")); return@post
+                }
+                val delivery = runCatching { auth.createPasswordReset(request.email) }.getOrNull()
+                if (delivery != null && !emailService.sendPasswordReset(delivery.email, delivery.token)) {
+                    logger.error("Unable to deliver password reset email; verify RESEND_API_KEY, EMAIL_FROM, and domain verification")
+                }
+                call.respond(HttpStatusCode.Accepted, mapOf("message" to "If that account exists, a reset link has been sent."))
+            }
+
+            post("/reset-password") {
+                val request = call.receive<ResetPasswordRequest>()
+                val rateKey = "reset:${call.request.origin.remoteHost}"
+                if (!authLimiter.allow(rateKey)) {
+                    call.respond(HttpStatusCode.TooManyRequests, mapOf("message" to "Too many attempts. Try again later.")); return@post
+                }
+                val changed = runCatching { auth.resetPassword(request.token, request.password) }.getOrDefault(false)
+                if (!changed) call.respond(HttpStatusCode.BadRequest, mapOf("message" to "The reset link is invalid or expired."))
+                else call.respond(mapOf("message" to "Password updated. Sign in with your new password."))
             }
 
             get("/me") {

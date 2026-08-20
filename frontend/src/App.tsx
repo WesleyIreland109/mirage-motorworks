@@ -16,6 +16,9 @@ import { VehicleDetailsPage } from "@/pages/public/VehicleDetailsPage";
 import { LoginPage } from "@/pages/admin/LoginPage";
 import { RegisterPage } from "@/pages/admin/RegisterPage";
 import { ProfilePage } from "@/pages/admin/ProfilePage";
+import { ForgotPasswordPage } from "@/pages/admin/ForgotPasswordPage";
+import { ResetPasswordPage } from "@/pages/admin/ResetPasswordPage";
+import { AdminInventory } from "@/pages/admin/AdminInventory";
 import { RequireAuth } from "@/components/RequireAuth";
 import { useQuery } from "@tanstack/react-query";
 import { currentUser } from "@/api/client";
@@ -56,6 +59,8 @@ export function App() {
       <Route path="drive-reports/:token" element={<DriveReportPage />} />
       <Route path="login" element={<LoginPage signedIn={Boolean(user)} />} />
       <Route path="register" element={<RegisterPage signedIn={Boolean(user)} />} />
+      <Route path="forgot-password" element={<ForgotPasswordPage />} />
+      <Route path="reset-password" element={<ResetPasswordPage />} />
       <Route element={<RequireAuth />}>
         <Route path="admin" element={<AdminLayout />}>
           <Route index element={<AdminDashboard />} />
@@ -70,7 +75,7 @@ export function App() {
           />
           <Route
             path="inventory"
-            element={<PlaceholderAdminPage title="Public Inventory" />}
+            element={<AdminInventory />}
           />
           <Route
             path="expenses"

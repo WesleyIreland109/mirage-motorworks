@@ -82,10 +82,22 @@ Set these values in `.env`:
 
 ```dotenv
 PUBLIC_SITE_ORIGIN=https://www.example.com
+PUBLIC_SITE_URL=https://www.example.com
 PUBLIC_REGISTRATION_ENABLED=true
 SESSION_COOKIE_SECURE=true
 SESSION_COOKIE_SAME_SITE=Strict
 ```
+
+Password reset delivery uses Resend. Verify a sending domain in Resend, create
+a domain-scoped sending API key, and add these values only to the Windows `.env`:
+
+```dotenv
+RESEND_API_KEY=re_replace_with_the_real_key
+EMAIL_FROM=Mirage Motorworks <accounts@example.com>
+```
+
+Never commit the API key. Reset tokens are random, stored only as SHA-256 hashes,
+expire after 30 minutes, are single-use, and revoke existing sessions when used.
 
 In the GitHub repository, create an Actions variable named
 `MIRAGE_API_BASE_URL` with value `https://api.example.com/api`, then redeploy
