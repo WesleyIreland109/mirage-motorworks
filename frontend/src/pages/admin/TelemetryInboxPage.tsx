@@ -1,8 +1,8 @@
-import { Activity, Bot, Car, Check, Copy, FileUp, Send, Sparkles, X } from "lucide-react";
+import { Activity, Bot, Car, Check, Copy, FileUp, Send, Sparkles, Trash2, X } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { analyzeTelemetry, createFleetVehicle, importTelemetrySession, listFleet, listTelemetrySessions, publishDriveReport, saveDriveReport } from "@/api/client";
+import { analyzeTelemetry, createFleetVehicle, deleteTelemetrySession, importTelemetrySession, listFleet, listTelemetrySessions, publishDriveReport, saveDriveReport } from "@/api/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -67,6 +67,21 @@ export function TelemetryInboxPage() {
     },
     onSuccess: (analysis) => { setAiAnalysis(analysis); setNotes([analysis.overview, ...analysis.observations].join("\n\n")); },
   });
+
+  const removeSession = useMutation({
+    mutationFn: deleteTelemetrySession,
+    onSuccess: (_, sessionId) => {
+      client.invalidateQueries({ queryKey: ["telemetry-sessions"] });
+      setReports((current) => { const next = { ...current }; delete next[sessionId]; return next; });
+      setMessage("The telemetry drive and its report were deleted.");
+    },
+  });
+
+  function clearUpload() {
+    setSummary(undefined); setTelemetryText(""); setDetected({}); setVehicleId(""); setMileage("");
+    setOwnerName(""); setNotes(""); setAiAnalysis(undefined); setAiOpen(false);
+    setMessage("Selected local files cleared. Nothing was uploaded.");
+  }
 
   function applyAISuggestions() {
     if (!aiAnalysis) return;
@@ -138,11 +153,11 @@ export function TelemetryInboxPage() {
           <div className="grid gap-3 md:grid-cols-3"><Input type="number" placeholder="Year" value={detected.year ?? ""} onChange={(e) => setDetected({...detected, year:Number(e.target.value)})}/><Input placeholder="Make" value={detected.make ?? ""} onChange={(e) => setDetected({...detected, make:e.target.value})}/><Input placeholder="Model" value={detected.model ?? ""} onChange={(e) => setDetected({...detected, model:e.target.value})}/><Input placeholder="Trim / generation" value={detected.trim ?? ""} onChange={(e) => setDetected({...detected, trim:e.target.value})}/><Input placeholder="VIN (when available)" value={detected.vin ?? ""} onChange={(e) => setDetected({...detected, vin:e.target.value})}/><Input type="number" placeholder="Confirmed mileage" value={mileage} onChange={(e) => setMileage(e.target.value)}/>{purpose === "working_on" && <Input placeholder="Customer / owner name" value={ownerName} onChange={(e) => setOwnerName(e.target.value)}/>}</div>
           <Textarea placeholder="Private intake notes" value={notes} onChange={(e) => setNotes(e.target.value)}/>
         </>}
-        <Button disabled={!summary || !telemetryText || ingest.isPending || (mode === "existing" && !vehicleId)} onClick={() => ingest.mutate()}><Car size={16}/> {mode === "existing" ? "Attach drive" : `Add to ${destinationNames[purpose]}`}</Button>
+        <div className="flex flex-wrap gap-2"><Button disabled={!summary || !telemetryText || ingest.isPending || (mode === "existing" && !vehicleId)} onClick={() => ingest.mutate()}><Car size={16}/> {mode === "existing" ? "Attach drive" : `Add to ${destinationNames[purpose]}`}</Button><Button variant="ghost" onClick={clearUpload}><X size={16}/> Clear upload</Button></div>
       </div>}
       {message && <p className="mt-4 text-sm text-mirage-muted">{message}</p>}
     </Card>
-    <div className="mt-8 grid gap-4">{sessions.map((session) => { const vehicle = fleet.find((item) => item.id === session.vehicleId); const report = reports[session.id]; return <Card key={session.id} className="p-5"><div className="flex flex-wrap items-start justify-between gap-4"><div><div className="flex items-center gap-2"><Activity size={17} className="text-mirage-cyan"/><h3 className="font-semibold">{session.label}</h3></div><p className="mt-2 text-sm text-mirage-muted">{vehicle ? `${vehicle.year} ${vehicle.make} ${vehicle.model} · ${destinationNames[vehicle.purpose]} · ` : ""}{new Date(session.startedAt).toLocaleString()} · {session.metrics.length} metrics</p></div><div className="flex flex-wrap gap-2"><Button variant="secondary" onClick={() => draftReport(session.id)}>Build draft</Button>{report?.status === "draft" && <Button onClick={() => publish(session.id)}><Send size={15}/> Publish</Button>}{report?.status === "published" && <Button variant="ghost" onClick={() => navigator.clipboard.writeText(`${location.origin}/drive-reports/${report.publicToken}`)}><Copy size={15}/> Copy link</Button>}</div></div>{report && <p className="mt-4 border-l-2 border-mirage-cyan pl-4 text-sm text-mirage-muted">{report.overview}</p>}</Card>; })}</div>
+    <div className="mt-8 grid gap-4">{sessions.map((session) => { const vehicle = fleet.find((item) => item.id === session.vehicleId); const report = reports[session.id]; return <Card key={session.id} className="p-5"><div className="flex flex-wrap items-start justify-between gap-4"><div><div className="flex items-center gap-2"><Activity size={17} className="text-mirage-cyan"/><h3 className="font-semibold">{session.label}</h3></div><p className="mt-2 text-sm text-mirage-muted">{vehicle ? `${vehicle.year} ${vehicle.make} ${vehicle.model} · ${destinationNames[vehicle.purpose]} · ` : ""}{new Date(session.startedAt).toLocaleString()} · {session.metrics.length} metrics</p></div><div className="flex flex-wrap gap-2"><Button variant="secondary" onClick={() => draftReport(session.id)}>Build draft</Button>{report?.status === "draft" && <Button onClick={() => publish(session.id)}><Send size={15}/> Publish</Button>}{report?.status === "published" && <Button variant="ghost" onClick={() => navigator.clipboard.writeText(`${location.origin}/drive-reports/${report.publicToken}`)}><Copy size={15}/> Copy link</Button>}<Button variant="danger" disabled={removeSession.isPending} onClick={() => { if (window.confirm("Delete this telemetry drive and its associated report? This cannot be undone.")) removeSession.mutate(session.id); }}><Trash2 size={15}/> Delete drive</Button></div></div>{report && <p className="mt-4 border-l-2 border-mirage-cyan pl-4 text-sm text-mirage-muted">{report.overview}</p>}</Card>; })}</div>
     {aiOpen && <aside className="fixed inset-x-3 bottom-3 top-20 z-50 overflow-y-auto border border-cyan-300/30 bg-[#071016]/95 p-5 shadow-[0_0_70px_rgba(34,211,238,.18)] backdrop-blur-xl sm:left-auto sm:right-5 sm:w-[370px] xl:right-6">
       <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-mirage-cyan via-violet-400 to-mirage-orange"/>
       <div className="flex items-start gap-3"><div className="grid size-12 shrink-0 place-items-center rounded-full bg-gradient-to-br from-mirage-cyan/30 via-violet-500/20 to-mirage-orange/20 ring-1 ring-white/15"><Bot className="text-mirage-cyan"/></div><div><p className="text-xs font-semibold uppercase tracking-[.22em] text-mirage-cyan">MirageAI</p><h2 className="mt-1 text-xl font-semibold">Telemetry copilot</h2></div><button className="ml-auto text-mirage-muted hover:text-white" aria-label="Close MirageAI" onClick={() => setAiOpen(false)}><X size={20}/></button></div>

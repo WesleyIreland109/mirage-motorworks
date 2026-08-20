@@ -130,6 +130,9 @@ export async function importTelemetrySession(
     body: JSON.stringify(input),
   });
 }
+export async function deleteTelemetrySession(sessionId: string): Promise<void> {
+  await request<void>(`/telemetry-sessions/${sessionId}`, { method: "DELETE" });
+}
 export async function analyzeTelemetry(input: { vehicle: MirageAIVehicleDraft; sessionLabel: string; startedAt: string; durationMs: number; samples: number; obdRequests: number; obdErrors: number; source: string; metrics: MetricSummary[] }): Promise<MirageAIAnalysis> {
   return request<MirageAIAnalysis>("/mirage-ai/analyze", { method: "POST", body: JSON.stringify(input) });
 }

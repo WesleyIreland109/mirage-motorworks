@@ -243,6 +243,12 @@ fun Application.module(config: AppConfig, vehicles: VehicleRepository, auth: Aut
                     .onSuccess { call.respond(HttpStatusCode.Created, it) }
                     .onFailure { call.respond(HttpStatusCode.BadRequest, mapOf("message" to "Invalid or unauthorized session import")) }
             }
+            delete("/{id}") {
+                val user = call.authenticatedUser(auth) ?: return@delete
+                val deleted = runCatching { telemetry.delete(user.id, call.parameters["id"].orEmpty()) }.getOrDefault(false)
+                if (deleted) call.respond(HttpStatusCode.NoContent)
+                else call.respond(HttpStatusCode.NotFound, mapOf("message" to "Telemetry session not found"))
+            }
             put("/{id}/report") {
                 val user = call.authenticatedUser(auth) ?: return@put
                 val id = call.parameters["id"].orEmpty()

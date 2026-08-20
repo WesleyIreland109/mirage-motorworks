@@ -44,6 +44,17 @@ class TelemetryRepository(private val database: Database) {
         }
     }
 
+    fun delete(userId: String, sessionId: String): Boolean = database.withConnection { connection ->
+        connection.prepareStatement(
+            """DELETE FROM telemetry_sessions s USING owned_vehicles v
+            WHERE s.id = ?::uuid AND s.vehicle_id = v.id AND v.user_id = ?::uuid"""
+        ).use { statement ->
+            statement.setString(1, sessionId)
+            statement.setString(2, userId)
+            statement.executeUpdate() > 0
+        }
+    }
+
     fun saveReport(userId: String, sessionId: String, draft: ReportDraft): DriveReport = database.withConnection { connection ->
         require(draft.title.isNotBlank() && draft.overview.isNotBlank())
         val owns = connection.prepareStatement("""SELECT 1 FROM telemetry_sessions s JOIN owned_vehicles v ON v.id=s.vehicle_id WHERE s.id=?::uuid AND v.user_id=?::uuid""").use { statement -> statement.setString(1, sessionId); statement.setString(2, userId); statement.executeQuery().use { it.next() } }
