@@ -91,3 +91,5 @@ export interface DriveReport {
   source: string;
   metrics: MetricSummary[];
 }
+export interface MirageAIVehicleDraft { year?: number; make?: string; model?: string; trim?: string; vin?: string; mileage?: number; profileId?: string; }
+export interface MirageAIAnalysis { title: string; overview: string; observations: string[]; suggestions: string[]; vehicle: MirageAIVehicleDraft; }

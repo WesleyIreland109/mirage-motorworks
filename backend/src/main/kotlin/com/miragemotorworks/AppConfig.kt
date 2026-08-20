@@ -12,6 +12,9 @@ data class AppConfig(
     val publicSiteUrl: String = System.getenv("PUBLIC_SITE_URL") ?: "http://localhost:5173",
     val resendApiKey: String? = System.getenv("RESEND_API_KEY")?.ifBlank { null },
     val emailFrom: String = System.getenv("EMAIL_FROM") ?: "Mirage Motorworks <accounts@miragemw.com>",
+    val cloudflareAccountId: String? = System.getenv("CLOUDFLARE_ACCOUNT_ID")?.trim()?.ifEmpty { null },
+    val cloudflareAiToken: String? = System.getenv("CLOUDFLARE_AI_TOKEN")?.trim()?.ifEmpty { null },
+    val mirageAiModel: String = System.getenv("MIRAGE_AI_MODEL") ?: "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
     val bootstrapAdminEmail: String? = System.getenv("BOOTSTRAP_ADMIN_EMAIL")?.trim()?.lowercase()?.ifEmpty { null },
     val bootstrapAdminPassword: String? = System.getenv("BOOTSTRAP_ADMIN_PASSWORD")?.ifEmpty { null },
     val corsAllowedOrigins: List<String> = (System.getenv("CORS_ALLOWED_ORIGINS")

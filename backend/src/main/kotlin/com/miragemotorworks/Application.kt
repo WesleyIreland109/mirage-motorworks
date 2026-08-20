@@ -40,6 +40,7 @@ fun main() {
 fun Application.module(config: AppConfig, vehicles: VehicleRepository, auth: AuthRepository, fleet: FleetRepository, telemetry: TelemetryRepository) {
     val authLimiter = AuthRateLimiter()
     val emailService = EmailService(config)
+    val mirageAI = MirageAIService(config)
     val logger = environment.log
     install(CallLogging)
     install(ContentNegotiation) {
@@ -254,6 +255,21 @@ fun Application.module(config: AppConfig, vehicles: VehicleRepository, auth: Aut
                 val report = telemetry.publish(user.id, call.parameters["id"].orEmpty())
                 if (report == null) call.respond(HttpStatusCode.NotFound, mapOf("message" to "Draft report not found")) else call.respond(report)
             }
+        }
+
+        post("/api/mirage-ai/analyze") {
+            val user = call.authenticatedUser(auth) ?: return@post
+            val rateKey = "mirage-ai:${user.id}"
+            if (!authLimiter.allow(rateKey)) {
+                call.respond(HttpStatusCode.TooManyRequests, mapOf("message" to "MirageAI needs a moment before another request.")); return@post
+            }
+            val input = runCatching { call.receive<MirageAIRequest>() }.getOrNull()
+            if (input == null || input.metrics.size > 100) {
+                call.respond(HttpStatusCode.BadRequest, mapOf("message" to "Invalid telemetry summary")); return@post
+            }
+            val result = mirageAI.analyze(input)
+            if (result == null) call.respond(HttpStatusCode.ServiceUnavailable, mapOf("message" to "MirageAI is not configured or temporarily unavailable"))
+            else call.respond(result)
         }
 
         get("/api/drive-reports/{token}") {

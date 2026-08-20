@@ -1,14 +1,14 @@
-import { Activity, Car, Copy, FileUp, Send } from "lucide-react";
+import { Activity, Bot, Car, Check, Copy, FileUp, Send, Sparkles, X } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { createFleetVehicle, importTelemetrySession, listFleet, listTelemetrySessions, publishDriveReport, saveDriveReport } from "@/api/client";
+import { analyzeTelemetry, createFleetVehicle, importTelemetrySession, listFleet, listTelemetrySessions, publishDriveReport, saveDriveReport } from "@/api/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { detectVehicle, summarizeTelemetry, type DetectedVehicle, type SessionSummary } from "@/lib/telemetryImport";
-import type { DriveReport, FleetVehicle, VehiclePurpose } from "@/types/fleet";
+import type { DriveReport, FleetVehicle, MirageAIAnalysis, VehiclePurpose } from "@/types/fleet";
 
 const destinationNames: Record<VehiclePurpose, string> = { personal: "My Garage", working_on: "Working On", flip: "Flips" };
 
@@ -25,6 +25,8 @@ export function TelemetryInboxPage() {
   const [notes, setNotes] = useState("");
   const [reports, setReports] = useState<Record<string, DriveReport>>({});
   const [message, setMessage] = useState("");
+  const [aiOpen, setAiOpen] = useState(false);
+  const [aiAnalysis, setAiAnalysis] = useState<MirageAIAnalysis>();
   const { data: fleet = [] } = useQuery({ queryKey: ["fleet"], queryFn: listFleet });
   const { data: sessions = [] } = useQuery({ queryKey: ["telemetry-sessions"], queryFn: () => listTelemetrySessions() });
 
@@ -42,12 +44,39 @@ export function TelemetryInboxPage() {
       else try { nextSummary = JSON.parse(text) as SessionSummary; setSummary(nextSummary); } catch { setMessage("The summary JSON could not be read."); }
     }
     if (nextSummary) {
+      setAiOpen(true); setAiAnalysis(undefined);
       const identity = detectVehicle(nextSummary); setDetected(identity);
       const match = fleet.find((vehicle) => (identity.vin && vehicle.vin?.toUpperCase() === identity.vin) ||
         (identity.make && identity.model && vehicle.make.toLowerCase() === identity.make.toLowerCase() && vehicle.model.toLowerCase() === identity.model.toLowerCase()));
       if (match) { setMode("existing"); setVehicleId(match.id); setMessage(`Likely match found: ${match.year} ${match.make} ${match.model}.`); }
       else setMessage(identity.make || identity.model ? "Vehicle identity detected. Confirm the fields and destination." : "Identity was not available in this recording. Enter the vehicle details to continue.");
     }
+  }
+
+  const askMirageAI = useMutation({
+    mutationFn: async () => {
+      if (!summary || !telemetryText) throw new Error("Select both telemetry files first.");
+      const parsed = summarizeTelemetry(telemetryText);
+      return analyzeTelemetry({
+        vehicle: { ...detected, mileage: mileage ? Number(mileage) : undefined },
+        sessionLabel: summary.label ?? "Mirage drive", startedAt: summary.startedAt ?? new Date().toISOString(),
+        durationMs: summary.durationMs ?? 0, samples: summary.samples ?? 0,
+        obdRequests: summary.obdRequests ?? 0, obdErrors: summary.obdErrors ?? 0,
+        source: parsed.source, metrics: parsed.metrics,
+      });
+    },
+    onSuccess: (analysis) => { setAiAnalysis(analysis); setNotes([analysis.overview, ...analysis.observations].join("\n\n")); },
+  });
+
+  function applyAISuggestions() {
+    if (!aiAnalysis) return;
+    const vehicle = aiAnalysis.vehicle;
+    setDetected((current) => ({
+      ...current, year: vehicle.year ?? current.year, make: vehicle.make ?? current.make,
+      model: vehicle.model ?? current.model, trim: vehicle.trim ?? current.trim,
+      vin: vehicle.vin ?? current.vin, profileId: vehicle.profileId ?? current.profileId,
+    }));
+    setMessage("MirageAI suggestions applied. Please verify every field before importing.");
   }
 
   const ingest = useMutation({
@@ -71,7 +100,11 @@ export function TelemetryInboxPage() {
         source: parsed.source, metrics: parsed.metrics, recordedMileage: mileage ? Number(mileage) : undefined,
       });
     },
-    onSuccess: () => {
+    onSuccess: async (session) => {
+      if (aiAnalysis) {
+        const report = await saveDriveReport(session.id, { title: aiAnalysis.title, overview: aiAnalysis.overview, observations: aiAnalysis.observations });
+        setReports((current) => ({ ...current, [session.id]: report }));
+      }
       client.invalidateQueries({ queryKey: ["fleet"] }); client.invalidateQueries({ queryKey: ["telemetry-sessions"] });
       setSummary(undefined); setTelemetryText(""); setDetected({}); setVehicleId(""); setMileage("");
       setMessage("Drive imported and attached successfully.");
@@ -92,7 +125,7 @@ export function TelemetryInboxPage() {
   }
   async function publish(sessionId: string) { const report = await publishDriveReport(sessionId); setReports((current) => ({ ...current, [sessionId]: report })); }
 
-  return <section className="px-5 py-8 lg:px-8">
+  return <section className={`px-5 py-8 transition-[padding] lg:px-8 ${aiOpen ? "xl:pr-[410px]" : ""}`}>
     <div className="border-b border-mirage-border pb-6"><p className="text-sm font-semibold uppercase tracking-[.24em] text-mirage-cyan">Garage OS</p><h1 className="mt-2 text-4xl font-semibold">Telemetry Inbox</h1><p className="mt-2 text-sm text-mirage-muted">Upload once, identify the vehicle, then route the drive to the right workspace.</p></div>
     <Card className="mt-8 p-5 lg:p-6">
       <div className="flex items-center gap-3"><FileUp className="text-mirage-cyan"/><div><h2 className="text-xl font-semibold">Import recorded drive</h2><p className="text-sm text-mirage-muted">Choose the summary JSON and telemetry JSONL. Raw files remain in your browser.</p></div></div>
@@ -110,5 +143,11 @@ export function TelemetryInboxPage() {
       {message && <p className="mt-4 text-sm text-mirage-muted">{message}</p>}
     </Card>
     <div className="mt-8 grid gap-4">{sessions.map((session) => { const vehicle = fleet.find((item) => item.id === session.vehicleId); const report = reports[session.id]; return <Card key={session.id} className="p-5"><div className="flex flex-wrap items-start justify-between gap-4"><div><div className="flex items-center gap-2"><Activity size={17} className="text-mirage-cyan"/><h3 className="font-semibold">{session.label}</h3></div><p className="mt-2 text-sm text-mirage-muted">{vehicle ? `${vehicle.year} ${vehicle.make} ${vehicle.model} · ${destinationNames[vehicle.purpose]} · ` : ""}{new Date(session.startedAt).toLocaleString()} · {session.metrics.length} metrics</p></div><div className="flex flex-wrap gap-2"><Button variant="secondary" onClick={() => draftReport(session.id)}>Build draft</Button>{report?.status === "draft" && <Button onClick={() => publish(session.id)}><Send size={15}/> Publish</Button>}{report?.status === "published" && <Button variant="ghost" onClick={() => navigator.clipboard.writeText(`${location.origin}/drive-reports/${report.publicToken}`)}><Copy size={15}/> Copy link</Button>}</div></div>{report && <p className="mt-4 border-l-2 border-mirage-cyan pl-4 text-sm text-mirage-muted">{report.overview}</p>}</Card>; })}</div>
+    {aiOpen && <aside className="fixed inset-x-3 bottom-3 top-20 z-50 overflow-y-auto border border-cyan-300/30 bg-[#071016]/95 p-5 shadow-[0_0_70px_rgba(34,211,238,.18)] backdrop-blur-xl sm:left-auto sm:right-5 sm:w-[370px] xl:right-6">
+      <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-mirage-cyan via-violet-400 to-mirage-orange"/>
+      <div className="flex items-start gap-3"><div className="grid size-12 shrink-0 place-items-center rounded-full bg-gradient-to-br from-mirage-cyan/30 via-violet-500/20 to-mirage-orange/20 ring-1 ring-white/15"><Bot className="text-mirage-cyan"/></div><div><p className="text-xs font-semibold uppercase tracking-[.22em] text-mirage-cyan">MirageAI</p><h2 className="mt-1 text-xl font-semibold">Telemetry copilot</h2></div><button className="ml-auto text-mirage-muted hover:text-white" aria-label="Close MirageAI" onClick={() => setAiOpen(false)}><X size={20}/></button></div>
+      {!aiAnalysis && <div className="mt-8"><p className="text-sm leading-6 text-mirage-muted">I can review the detected identity and summarized OBD ranges, flag missing or questionable fields, and prepare a customer-friendly report draft.</p><Card className="mt-5 bg-white/[.03] p-4 text-xs leading-5 text-mirage-muted">I only receive summarized metrics—not your raw JSONL—and I will never replace your confirmation of mileage, vehicle identity, or mechanical condition.</Card><Button className="mt-6 w-full" disabled={askMirageAI.isPending || !summary || !telemetryText} onClick={() => askMirageAI.mutate()}><Sparkles size={16}/>{askMirageAI.isPending ? "Reviewing drive…" : "Ask MirageAI"}</Button>{askMirageAI.isError && <p className="mt-4 text-sm text-mirage-orange">MirageAI is unavailable. Verify the Cloudflare settings or use the standard draft builder.</p>}</div>}
+      {aiAnalysis && <div className="mt-7 space-y-6"><div><p className="text-xs font-semibold uppercase tracking-[.18em] text-mirage-muted">Suggested report</p><h3 className="mt-2 font-semibold">{aiAnalysis.title}</h3><p className="mt-3 text-sm leading-6 text-mirage-muted">{aiAnalysis.overview}</p></div><div><p className="text-xs font-semibold uppercase tracking-[.18em] text-mirage-muted">Observations</p><ul className="mt-3 space-y-3 text-sm leading-5 text-mirage-muted">{aiAnalysis.observations.map((item) => <li key={item} className="border-l border-mirage-cyan/50 pl-3">{item}</li>)}</ul></div>{aiAnalysis.suggestions.length > 0 && <div><p className="text-xs font-semibold uppercase tracking-[.18em] text-mirage-muted">Fields to review</p><ul className="mt-3 space-y-2 text-sm text-amber-100">{aiAnalysis.suggestions.map((item) => <li key={item}>• {item}</li>)}</ul><Button className="mt-4 w-full" variant="secondary" onClick={applyAISuggestions}><Check size={16}/> Apply suggested fields</Button></div>}<p className="text-xs leading-5 text-mirage-muted">Review the draft before saving. MirageAI describes recorded data; it does not perform a mechanical inspection.</p></div>}
+    </aside>}
   </section>;
 }

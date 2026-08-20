@@ -6,6 +6,9 @@ import type {
   SessionImport,
   TaskStatus,
   TelemetrySession,
+  MirageAIAnalysis,
+  MirageAIVehicleDraft,
+  MetricSummary,
 } from "@/types/fleet";
 
 const API_BASE_URL =
@@ -126,6 +129,9 @@ export async function importTelemetrySession(
     method: "POST",
     body: JSON.stringify(input),
   });
+}
+export async function analyzeTelemetry(input: { vehicle: MirageAIVehicleDraft; sessionLabel: string; startedAt: string; durationMs: number; samples: number; obdRequests: number; obdErrors: number; source: string; metrics: MetricSummary[] }): Promise<MirageAIAnalysis> {
+  return request<MirageAIAnalysis>("/mirage-ai/analyze", { method: "POST", body: JSON.stringify(input) });
 }
 export async function saveDriveReport(
   sessionId: string,
