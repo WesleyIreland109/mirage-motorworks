@@ -337,8 +337,8 @@ export function AdminDashboard() {
                 Your garage is empty
               </h2>
               <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-mirage-muted">
-                Add the Atlas, FK8, or HR-V. A short questionnaire will generate
-                the first maintenance checklist.
+                Add your first vehicle. A short questionnaire will generate the
+                first maintenance checklist.
               </p>
               <Button className="mt-6" onClick={() => setAdding(true)}>
                 <Plus size={17} /> Add your first vehicle

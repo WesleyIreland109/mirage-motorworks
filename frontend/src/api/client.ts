@@ -83,6 +83,14 @@ export async function logout(): Promise<void> {
   await request<void>("/auth/logout", { method: "POST" });
 }
 
+export async function listUsers(): Promise<AuthUser[]> {
+  return request<AuthUser[]>("/admin/users");
+}
+
+export async function promoteUser(userId: string): Promise<AuthUser> {
+  return request<AuthUser>(`/admin/users/${userId}/promote`, { method: "PUT" });
+}
+
 export async function listFleet(): Promise<FleetVehicle[]> {
   return request<FleetVehicle[]>("/fleet");
 }

@@ -211,6 +211,40 @@ class AuthRepository(private val database: Database) {
         }
     }
 
+    fun listUsers(): List<AuthUser> = database.withConnection { connection ->
+        connection.prepareStatement(
+            "SELECT id, email, display_name, role FROM users ORDER BY created_at ASC"
+        ).use { statement ->
+            statement.executeQuery().use { result ->
+                buildList {
+                    while (result.next()) add(
+                        AuthUser(
+                            result.getString("id"),
+                            result.getString("email"),
+                            result.getString("display_name"),
+                            result.getString("role")
+                        )
+                    )
+                }
+            }
+        }
+    }
+
+    fun promoteToAdmin(userId: String): AuthUser? = database.withConnection { connection ->
+        connection.prepareStatement(
+            """UPDATE users SET role = 'admin', updated_at = NOW()
+            WHERE id = ?::uuid RETURNING id, email, display_name, role"""
+        ).use { statement ->
+            statement.setString(1, userId)
+            statement.executeQuery().use { result ->
+                if (!result.next()) null else AuthUser(
+                    result.getString("id"), result.getString("email"),
+                    result.getString("display_name"), result.getString("role")
+                )
+            }
+        }
+    }
+
     fun logout(token: String?) {
         if (token.isNullOrBlank()) return
         database.withConnection { connection ->

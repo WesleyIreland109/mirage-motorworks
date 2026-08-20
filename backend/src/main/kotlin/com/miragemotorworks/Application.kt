@@ -194,6 +194,24 @@ fun Application.module(config: AppConfig, vehicles: VehicleRepository, auth: Aut
             }
         }
 
+        route("/api/admin/users") {
+            get {
+                if (!call.requireAdmin(auth)) return@get
+                call.respond(auth.listUsers())
+            }
+            put("/{id}/promote") {
+                if (!call.requireAdmin(auth)) return@put
+                val promoted = runCatching {
+                    auth.promoteToAdmin(call.parameters["id"].orEmpty())
+                }.getOrNull()
+                if (promoted == null) {
+                    call.respond(HttpStatusCode.NotFound, mapOf("message" to "User not found"))
+                } else {
+                    call.respond(promoted)
+                }
+            }
+        }
+
         route("/api/fleet") {
             get {
                 val user = call.authenticatedUser(auth) ?: return@get
