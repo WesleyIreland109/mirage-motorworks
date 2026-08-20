@@ -10,22 +10,27 @@ class TelemetryRepository(private val database: Database) {
 
     fun import(userId: String, input: SessionImport): TelemetrySession = database.withConnection { connection ->
         require(input.externalSessionId.isNotBlank() && input.durationMs >= 0 && input.samples >= 0)
-        require(input.source in setOf("vehicle", "simulator", "unknown"))
+        require(input.source in setOf("vehicle", "simulator", "unknown") && (input.recordedMileage == null || input.recordedMileage >= 0))
         val ownsVehicle = connection.prepareStatement("SELECT 1 FROM owned_vehicles WHERE id = ?::uuid AND user_id = ?::uuid").use { statement ->
             statement.setString(1, input.vehicleId); statement.setString(2, userId); statement.executeQuery().use { it.next() }
         }
         require(ownsVehicle)
         val id = UUID.randomUUID()
         connection.prepareStatement("""INSERT INTO telemetry_sessions
-            (id, vehicle_id, external_session_id, label, started_at, duration_ms, samples, obd_requests, obd_errors, source, metrics_json)
-            VALUES (?, ?::uuid, ?, ?, ?::timestamptz, ?, ?, ?, ?, ?, ?::jsonb)
-            ON CONFLICT (vehicle_id, external_session_id) DO UPDATE SET label=EXCLUDED.label, metrics_json=EXCLUDED.metrics_json
+            (id, vehicle_id, external_session_id, label, started_at, duration_ms, samples, obd_requests, obd_errors, source, metrics_json, recorded_mileage)
+            VALUES (?, ?::uuid, ?, ?, ?::timestamptz, ?, ?, ?, ?, ?, ?::jsonb, ?)
+            ON CONFLICT (vehicle_id, external_session_id) DO UPDATE SET label=EXCLUDED.label, metrics_json=EXCLUDED.metrics_json, recorded_mileage=EXCLUDED.recorded_mileage
             RETURNING *""").use { statement ->
             statement.setObject(1, id); statement.setString(2, input.vehicleId); statement.setString(3, input.externalSessionId)
             statement.setString(4, input.label); statement.setString(5, input.startedAt); statement.setLong(6, input.durationMs)
             statement.setLong(7, input.samples); statement.setLong(8, input.obdRequests); statement.setLong(9, input.obdErrors)
             statement.setString(10, input.source); statement.setString(11, json.encodeToString(input.metrics))
-            statement.executeQuery().use { result -> result.next(); result.toSession() }
+            if (input.recordedMileage == null) statement.setNull(12, java.sql.Types.INTEGER) else statement.setInt(12, input.recordedMileage)
+            val session = statement.executeQuery().use { result -> result.next(); result.toSession() }
+            if (input.recordedMileage != null) connection.prepareStatement("UPDATE owned_vehicles SET mileage = ?, updated_at = NOW() WHERE id = ?::uuid AND user_id = ?::uuid").use {
+                it.setInt(1, input.recordedMileage); it.setString(2, input.vehicleId); it.setString(3, userId); it.executeUpdate()
+            }
+            session
         }
     }
 
@@ -56,5 +61,5 @@ class TelemetryRepository(private val database: Database) {
     private fun reportForUser(userId:String, sessionId:String):DriveReport? = database.withConnection { c -> queryReport(c.prepareStatement(reportSQL()+" WHERE s.id=?::uuid AND v.user_id=?::uuid").apply {setString(1,sessionId);setString(2,userId)}) }
     private fun reportSQL()="""SELECT r.*,s.label session_label,s.started_at,s.source,s.metrics_json,v.year,v.make,v.model FROM drive_reports r JOIN telemetry_sessions s ON s.id=r.session_id JOIN owned_vehicles v ON v.id=s.vehicle_id"""
     private fun queryReport(statement:java.sql.PreparedStatement):DriveReport? = statement.use { s -> s.executeQuery().use { r -> if(!r.next()) null else DriveReport(r.getString("id"),r.getString("session_id"),r.getString("public_token"),r.getString("title"),r.getString("overview"),json.decodeFromString(r.getString("observations_json")),r.getString("status"),r.getObject("published_at")?.toString(),"${r.getInt("year")} ${r.getString("make")} ${r.getString("model")}",r.getString("session_label"),r.getString("started_at"),r.getString("source"),json.decodeFromString(r.getString("metrics_json"))) } }
-    private fun ResultSet.toSession()=TelemetrySession(getString("id"),getString("vehicle_id"),getString("external_session_id"),getString("label"),getString("started_at"),getLong("duration_ms"),getLong("samples"),getLong("obd_requests"),getLong("obd_errors"),getString("source"),json.decodeFromString(getString("metrics_json")),getString("imported_at"))
+    private fun ResultSet.toSession()=TelemetrySession(getString("id"),getString("vehicle_id"),getString("external_session_id"),getString("label"),getString("started_at"),getLong("duration_ms"),getLong("samples"),getLong("obd_requests"),getLong("obd_errors"),getString("source"),json.decodeFromString(getString("metrics_json")),getString("imported_at"),(getObject("recorded_mileage") as? Number)?.toInt())
 }

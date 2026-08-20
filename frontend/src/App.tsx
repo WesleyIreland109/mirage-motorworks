@@ -20,6 +20,7 @@ import { ForgotPasswordPage } from "@/pages/admin/ForgotPasswordPage";
 import { ResetPasswordPage } from "@/pages/admin/ResetPasswordPage";
 import { AdminInventory } from "@/pages/admin/AdminInventory";
 import { AdminUsers } from "@/pages/admin/AdminUsers";
+import { TelemetryInboxPage } from "@/pages/admin/TelemetryInboxPage";
 import { RequireAuth } from "@/components/RequireAuth";
 import { useQuery } from "@tanstack/react-query";
 import { currentUser } from "@/api/client";
@@ -65,6 +66,7 @@ export function App() {
       <Route element={<RequireAuth />}>
         <Route path="admin" element={<AdminLayout />}>
           <Route index element={<AdminDashboard />} />
+          <Route path="telemetry" element={<TelemetryInboxPage />} />
           <Route path="vehicles" element={<Navigate to="/admin" replace />} />
           <Route
             path="working-on"

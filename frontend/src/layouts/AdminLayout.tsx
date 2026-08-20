@@ -11,6 +11,7 @@ import {
   Activity,
   BadgeDollarSign,
   Users,
+  RadioTower,
 } from "lucide-react";
 import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -21,6 +22,7 @@ import { Button } from "@/components/ui/button";
 
 const sharedNav = [
   { to: "/admin", label: "My Garage", icon: Gauge },
+  { to: "/admin/telemetry", label: "Telemetry Inbox", icon: RadioTower },
   { to: "/admin/working-on", label: "Working On", icon: Activity },
   { to: "/admin/documents", label: "Documents", icon: FileText },
   { to: "/admin/settings", label: "Profile", icon: Settings },
@@ -38,7 +40,7 @@ export function AdminLayout() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { data: user } = useQuery({ queryKey: ["auth-user"], queryFn: currentUser, retry: false });
-  const nav = user?.role === "admin" ? [...sharedNav.slice(0, 2), ...adminNav, ...sharedNav.slice(2)] : sharedNav;
+  const nav = user?.role === "admin" ? [...sharedNav.slice(0, 3), ...adminNav, ...sharedNav.slice(3)] : sharedNav;
 
   async function signOut() {
     await logout();
