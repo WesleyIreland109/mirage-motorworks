@@ -9,6 +9,8 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
@@ -40,8 +42,13 @@ Keep the customer-facing report concise, professional, and explicit that recorde
         return runCatching {
             val response = client.send(request, HttpResponse.BodyHandlers.ofString())
             if (response.statusCode() !in 200..299) return@runCatching null
-            val content = json.parseToJsonElement(response.body()).jsonObject["result"]?.jsonObject
-                ?.get("response")?.jsonPrimitive?.content ?: return@runCatching null
+            val result = json.parseToJsonElement(response.body()).jsonObject["result"]?.jsonObject
+                ?: return@runCatching null
+            val choice = result["choices"]?.jsonArray?.firstOrNull()?.jsonObject
+            val content = result["response"]?.jsonPrimitive?.contentOrNull
+                ?: choice?.get("message")?.jsonObject?.get("content")?.jsonPrimitive?.contentOrNull
+                ?: choice?.get("text")?.jsonPrimitive?.contentOrNull
+                ?: return@runCatching null
             val cleaned = content.trim().removePrefix("```json").removePrefix("```").removeSuffix("```").trim()
             json.decodeFromString<MirageAIResponse>(cleaned)
         }.getOrNull()
