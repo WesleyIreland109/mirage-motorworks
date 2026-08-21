@@ -18,10 +18,10 @@ import { VehicleCard } from "@/components/VehicleCard";
 import { Button } from "@/components/ui/button";
 
 const capabilities = [
-  { label: "GarageOS", icon: Gauge, text: "Vehicle intake, VIN notes, checklists, repair status, documents, and handoff details in one workspace." },
-  { label: "Telemetry Dashboard", icon: RadioTower, text: "Recorded drive files become readable sessions with metrics, observations, and report drafts." },
-  { label: "Instant Updates", icon: Smartphone, text: "Shareable progress links keep mechanics, owners, and the garage team aligned automatically." },
-  { label: "Inventory Pipeline", icon: PackageCheck, text: "Track acquisition, refurbishment scope, parts, cost basis, readiness, and final listing quality." },
+  { label: "GarageOS", icon: Gauge, to: "/garage-os", text: "Vehicle intake, VIN notes, checklists, repair status, documents, and handoff details in one workspace." },
+  { label: "Telemetry Dashboard", icon: RadioTower, to: "/telemetry-dashboard", text: "Recorded drive files become readable sessions with metrics, observations, and report drafts." },
+  { label: "Instant Updates", icon: Smartphone, to: "/garage-os#instant-updates", text: "Shareable progress links keep mechanics, owners, and the garage team aligned automatically." },
+  { label: "Inventory Pipeline", icon: PackageCheck, to: "/inventory", text: "Track acquisition, refurbishment scope, parts, cost basis, readiness, and final listing quality." },
 ];
 
 const operatingLoops = [
@@ -128,11 +128,18 @@ export function HomePage() {
           {capabilities.map((item) => {
             const Icon = item.icon;
             return (
-              <div key={item.label} className="border border-mirage-border bg-mirage-panel p-6">
+              <Link
+                key={item.label}
+                to={item.to}
+                className="group border border-mirage-border bg-mirage-panel p-6 transition hover:-translate-y-1 hover:border-mirage-cyan/40 hover:bg-mirage-secondary"
+              >
                 <Icon className="text-mirage-cyan" size={24} />
-                <h3 className="mt-8 text-xl font-semibold">{item.label}</h3>
+                <h3 className="mt-8 flex items-center justify-between gap-3 text-xl font-semibold">
+                  {item.label}
+                  <ArrowRight size={16} className="text-mirage-muted transition group-hover:translate-x-1 group-hover:text-mirage-cyan" />
+                </h3>
                 <p className="mt-3 text-sm leading-6 text-mirage-muted">{item.text}</p>
-              </div>
+              </Link>
             );
           })}
         </div>

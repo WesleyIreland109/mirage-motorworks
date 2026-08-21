@@ -1,4 +1,4 @@
-import { Activity, Bot, FileText, Gauge, RadioTower, Share2 } from "lucide-react";
+import { Activity, Bot, ExternalLink, FileText, Gauge, RadioTower, Share2 } from "lucide-react";
 import { Link } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
@@ -9,6 +9,8 @@ const telemetryCards = [
   ["Report", "Draft readable drive reports that support the mechanical inspection."],
   ["Share", "Publish owner, team, or public links with the right visibility."],
 ];
+
+const sampleReportUrl = "https://miragemw.com/drive-reports/d8efd4f5b02d48cb85ac221af3967252";
 
 export function TelemetryDashboardPage() {
   return (
@@ -87,6 +89,89 @@ export function TelemetryDashboardPage() {
             </div>
           );
         })}
+      </section>
+
+      <section className="mt-16 grid gap-8 border-y border-mirage-border py-16 lg:grid-cols-[0.95fr_1.05fr]">
+        <div>
+          <p className="text-sm font-semibold uppercase tracking-[0.28em] text-mirage-cyan">
+            Sample Pages
+          </p>
+          <h2 className="mt-3 text-4xl font-bold text-white">
+            From raw drive to shareable report.
+          </h2>
+          <p className="mt-5 text-sm leading-7 text-mirage-muted">
+            The telemetry workflow should create two useful surfaces: an
+            internal dashboard for the shop and a polished report link for
+            customers, owners, buyers, or the Mirage team.
+          </p>
+          <div className="mt-7 flex flex-wrap gap-3">
+            <Button asChild>
+              <a href={sampleReportUrl} target="_blank" rel="noreferrer">
+                Open sample report <ExternalLink size={16} />
+              </a>
+            </Button>
+            <Button asChild variant="secondary">
+              <Link to="/garage-os#instant-updates">See GarageOS update sample</Link>
+            </Button>
+          </div>
+        </div>
+
+        <div className="grid gap-5">
+          <article className="border border-white/[0.06] bg-mirage-panel p-5">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-mirage-muted">
+                  Internal Telemetry View
+                </p>
+                <h3 className="mt-2 text-2xl font-semibold">Dacoit drive summary</h3>
+              </div>
+              <RadioTower className="text-mirage-cyan" />
+            </div>
+            <div className="mt-5 grid gap-3 md:grid-cols-3">
+              {[
+                ["Samples", "12,480"],
+                ["Metrics", "14"],
+                ["Report", "Published"],
+              ].map(([label, value]) => (
+                <div key={label} className="bg-mirage-bg/60 p-4">
+                  <p className="text-xs uppercase tracking-[0.18em] text-mirage-muted">{label}</p>
+                  <p className="mt-2 text-xl font-semibold">{value}</p>
+                </div>
+              ))}
+            </div>
+            <div className="mt-5 space-y-3">
+              {[
+                "Vehicle identity confirmed and attached to the garage record.",
+                "OBD data summarized into human-readable ranges and observations.",
+                "Report visibility set to link-accessible for concept review.",
+              ].map((item) => (
+                <p key={item} className="border-l border-mirage-cyan/50 pl-3 text-sm leading-6 text-mirage-muted">
+                  {item}
+                </p>
+              ))}
+            </div>
+          </article>
+
+          <article className="border border-mirage-cyan/20 bg-[#071016]/85 p-5">
+            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-mirage-cyan">
+              Published Report Preview
+            </p>
+            <h3 className="mt-3 text-2xl font-semibold">Readable proof from a road test.</h3>
+            <p className="mt-3 text-sm leading-6 text-mirage-muted">
+              A report page takes shop telemetry and turns it into a clean,
+              shareable record. It should make sense to a mechanic, an owner,
+              and a future buyer without exposing raw diagnostic clutter.
+            </p>
+            <a
+              href={sampleReportUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="mt-5 inline-flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.18em] text-mirage-cyan hover:text-white"
+            >
+              View live report <ExternalLink size={15} />
+            </a>
+          </article>
+        </div>
       </section>
 
       <section className="mt-16 border-y border-mirage-border py-12">
