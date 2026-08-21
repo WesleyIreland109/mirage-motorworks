@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 
 const thesis = [
   ["Immediate Use", "Investment funds the first Mirage-owned enthusiast car: acquisition, parts, repair labor, photos, listing, and carrying costs."],
-  ["Proof Vehicle", "That first build becomes a revenue event and a live demonstration of GarageOS, instant updates, telemetry reports, and operational automation."],
+  ["Proof Vehicle", "That first build, plus select repair and maintenance work, becomes a live demonstration of GarageOS, instant updates, telemetry reports, and operational automation."],
   ["Upside", "The larger incentive is the software and hardware platform being developed behind the garage, which can scale beyond a single car sale."],
 ];
 
@@ -25,8 +25,8 @@ export function InvestorProspectusPage() {
             the car, making it right, documenting it, and selling it under the
             brand. The investor upside is that the car is only the wedge. The
             main long-term opportunity is the software and hardware being built
-            to automate the garage, telemetry, instant updates, and customer
-            experience.
+            to automate the garage, telemetry, instant updates, repair
+            communication, and customer experience.
           </p>
           <div className="mt-9 flex flex-wrap gap-4">
             <Button asChild>
@@ -71,7 +71,8 @@ export function InvestorProspectusPage() {
         </div>
         <p className="text-lg leading-9 text-mirage-muted">
           The initial investment helps Mirage acquire and complete the first
-          neglected enthusiast car without starving the software effort. Every
+          neglected enthusiast car without starving the software effort. Select
+          customer repairs and maintenance add real shop volume while every
           repair, update, telemetry session, and listing step becomes product
           feedback for GarageOS and the in-car telemetry hardware concept.
         </p>

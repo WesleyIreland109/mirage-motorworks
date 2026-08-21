@@ -97,9 +97,9 @@ export function PublicLayout() {
           <div>
             <Logo />
             <p className="mt-5 max-w-xl text-sm leading-7 text-mirage-muted">
-              GarageOS, telemetry workflows, instant shop updates, and
-              refurbished enthusiast-car inventory powered by software at the
-              core of the business.
+              GarageOS, telemetry workflows, instant shop updates, select repair
+              and maintenance work, and refurbished enthusiast-car inventory
+              powered by software at the core of the business.
             </p>
           </div>
           <div className="grid gap-4 text-sm text-mirage-muted sm:grid-cols-2">

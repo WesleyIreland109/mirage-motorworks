@@ -60,9 +60,10 @@ export function HomePage() {
               Restored Icons.
             </h1>
             <p className="mt-7 max-w-2xl text-lg leading-8 text-zinc-300">
-              Mirage Motorworks refurbishes neglected enthusiast cars and runs
-              the business on software at its core: GarageOS, telemetry, repair
-              automation, instant updates, documents, and inventory readiness.
+              Mirage Motorworks refurbishes neglected enthusiast cars, takes on
+              select repair and maintenance work, and runs the business on
+              software at its core: GarageOS, telemetry, repair automation,
+              instant updates, documents, and inventory readiness.
             </p>
             <div className="mt-10 flex flex-wrap gap-4">
               <Button asChild>
@@ -83,7 +84,7 @@ export function HomePage() {
             <p className="mt-4 text-3xl font-semibold leading-tight">
               The big unlock is automation: every inspection, repair note,
               telemetry session, and progress update moves the car closer to
-              sale without disappearing into texts and spreadsheets.
+              completion without disappearing into texts and spreadsheets.
             </p>
           </div>
         </div>
@@ -152,12 +153,13 @@ export function HomePage() {
               Operating Loop
             </p>
             <h2 className="mt-3 text-4xl font-bold text-white md:text-5xl">
-              From neglected lead to Mirage-ready inventory.
+              From neglected car to Mirage-ready inventory.
             </h2>
             <p className="mt-5 text-sm leading-7 text-mirage-muted">
-              The vehicle business pressure-tests the product. Repairs,
-              refurbishments, customer work, instant updates, and future
-              consumer software all share the same operational backbone.
+              The vehicle business pressure-tests the product. Mirage-owned
+              refurbishments, select customer repair and maintenance work,
+              instant updates, and future consumer software all share the same
+              operational backbone.
             </p>
           </div>
           <div className="grid gap-4 md:grid-cols-2">

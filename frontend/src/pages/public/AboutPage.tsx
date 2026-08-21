@@ -5,17 +5,33 @@ export function AboutPage() {
         About
       </p>
       <h1 className="mt-4 max-w-5xl text-5xl font-black leading-none tracking-tight md:text-7xl">
-        Software for the garage we actually want to run.
+        Built for the garage customers should have been getting all along.
       </h1>
       <div className="mt-12 max-w-4xl space-y-7 border-y border-mirage-border py-12 text-lg leading-9 text-zinc-300">
         <p>
-          Mirage Motorworks is being built around GarageOS: a software layer for
-          enthusiast garages that need better intake, inspection, telemetry,
-          documentation, repair tracking, and handoff tools.
+          Mirage Motorworks was started by a seasoned software engineer and car
+          enthusiast who kept seeing the same failure pattern in the industry:
+          poor communication from mechanics and dealerships, vague repair
+          updates, untrustworthy work, and expensive mishaps around the machines
+          he cares about most.
         </p>
         <p>
-          This page is intentionally stripped back for now while the deeper
-          company story is written.
+          The company is being built to be customer-forward and stable from the
+          inside out. GarageOS gives every car a living record: what was found,
+          what was approved, what changed, what still needs attention, and why
+          the work matters.
+        </p>
+        <p>
+          Mirage will sell refurbished enthusiast cars and also take on select
+          repair and maintenance work for customer cars. Both sides of the shop
+          help harden the software while the business works toward the larger
+          goal: a garage, product, and platform driven by better communication.
+        </p>
+        <p>
+          The standard is personal. A Mirage car should be safe and mechanically
+          sound enough that he would put his wife and child inside it and drive
+          across the country without a second thought about the quality of the
+          repair.
         </p>
       </div>
     </main>

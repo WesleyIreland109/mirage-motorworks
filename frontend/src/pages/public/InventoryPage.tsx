@@ -35,7 +35,8 @@ export function InventoryPage() {
           <p className="mt-5 max-w-2xl text-lg leading-8 text-mirage-muted">
             Neglected enthusiast cars, brought back with a point of view and
             tracked from acquisition through prep. Each listing is the public
-            side of a GarageOS record, not a commodity tile.
+            side of a GarageOS record, not a commodity tile. The same standard
+            carries into select repair and maintenance work for customer cars.
           </p>
         </div>
         <label className="relative block">

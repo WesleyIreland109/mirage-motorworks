@@ -102,9 +102,9 @@ export function GarageOSPage() {
           </h1>
           <p className="mt-7 max-w-3xl text-lg leading-8 text-mirage-muted">
             GarageOS is the internal software layer for sourcing, inspecting,
-            refurbishing, documenting, and selling enthusiast cars. The point is
-            simple: make the shop faster, cleaner, and more transparent through
-            automation and instant updates.
+            refurbishing, documenting, servicing, and selling enthusiast cars.
+            The point is simple: make the shop faster, cleaner, and more
+            transparent through automation and instant updates.
           </p>
           <div className="mt-9 flex flex-wrap gap-4">
             <Button asChild>
@@ -123,7 +123,7 @@ export function GarageOSPage() {
             Core Promise
           </p>
           <p className="mt-4 text-3xl font-semibold leading-tight">
-            A car should never be waiting because the next step is buried in a
+            A car should never be waiting, because the next step is buried in a
             text, a notebook, or someone&apos;s memory.
           </p>
         </div>
@@ -153,7 +153,8 @@ export function GarageOSPage() {
           <p className="mt-5 max-w-3xl text-sm leading-7 text-mirage-muted">
             This is the concept for a Camaro undergoing repair/restoration:
             the mechanic advances shop steps, GarageOS updates the internal
-            status, and the shareable progress report changes automatically.
+            status, and the shareable progress report changes automatically for
+            the garage team or customer.
           </p>
           <div className="mt-8 border border-white/[0.06] bg-mirage-panel p-5">
             <div className="flex flex-wrap items-end justify-between gap-4">

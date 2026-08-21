@@ -16,8 +16,8 @@ export function ContactPage() {
         </h1>
         <p className="mt-7 text-lg leading-8 text-mirage-muted">
           For GarageOS feedback, telemetry workflow ideas, refurbishment leads,
-          or a specific vehicle dossier, send a note. The response will be
-          direct, detailed, and human.
+          select repair or maintenance work, or a specific vehicle dossier,
+          send a note. The response will be direct, detailed, and human.
         </p>
       </div>
       <form className="grid gap-5 border border-mirage-border bg-mirage-panel p-6">
@@ -26,7 +26,7 @@ export function ContactPage() {
           <Input type="email" placeholder="Email" />
         </div>
         <Input placeholder="Subject" />
-        <Textarea placeholder="Tell us what you are trying to track, fix, import, or restore." />
+        <Textarea placeholder="Tell us what you are trying to track, fix, maintain, import, or restore." />
         <Button type="button" className="w-fit">
           <Send size={17} /> Send Inquiry
         </Button>
