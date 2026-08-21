@@ -2,7 +2,7 @@ import { Activity, Bot, Car, Check, Copy, FileUp, Send, Sparkles, Trash2, X } fr
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { analyzeTelemetry, createFleetVehicle, deleteTelemetrySession, importTelemetrySession, listFleet, listTelemetrySessions, publishDriveReport, saveDriveReport } from "@/api/client";
+import { analyzeTelemetry, createFleetVehicle, currentUser, deleteTelemetrySession, importTelemetrySession, listFleet, listTelemetrySessions, listUsers, publishDriveReport, saveDriveReport } from "@/api/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -25,10 +25,14 @@ export function TelemetryInboxPage() {
   const [notes, setNotes] = useState("");
   const [reports, setReports] = useState<Record<string, DriveReport>>({});
   const [message, setMessage] = useState("");
+  const [reportAccess, setReportAccess] = useState<Record<string, { visibility: "private" | "customer" | "public"; viewerUserId?: string }>>({});
   const [aiOpen, setAiOpen] = useState(false);
   const [aiAnalysis, setAiAnalysis] = useState<MirageAIAnalysis>();
   const { data: fleet = [] } = useQuery({ queryKey: ["fleet"], queryFn: listFleet });
   const { data: sessions = [] } = useQuery({ queryKey: ["telemetry-sessions"], queryFn: () => listTelemetrySessions() });
+  const { data: signedInUser } = useQuery({ queryKey: ["auth-user"], queryFn: currentUser, retry: false });
+  const { data: users = [] } = useQuery({ queryKey: ["users"], queryFn: listUsers, enabled: signedInUser?.role === "admin" });
+  const customers = users.filter((user) => user.role !== "admin");
 
   const likelyMatch = useMemo(() => fleet.find((vehicle) =>
     (detected.vin && vehicle.vin?.toUpperCase() === detected.vin) ||
@@ -138,7 +142,11 @@ export function TelemetryInboxPage() {
     const report = await saveDriveReport(session.id, { title: `Mirage Drive Summary — ${vehicle.year} ${vehicle.make} ${vehicle.model}`, overview: session.source === "simulator" ? "A simulator-backed Mirage session was reviewed." : "Mirage reviewed the data channels available during this drive and summarized the observed ranges below.", observations });
     setReports((current) => ({ ...current, [session.id]: report }));
   }
-  async function publish(sessionId: string) { const report = await publishDriveReport(sessionId); setReports((current) => ({ ...current, [sessionId]: report })); }
+  async function publish(sessionId: string) {
+    const access = reportAccess[sessionId] ?? { visibility: "private" as const };
+    if (access.visibility === "customer" && !access.viewerUserId) { setMessage("Select the customer account that may view this report."); return; }
+    const report = await publishDriveReport(sessionId, access); setReports((current) => ({ ...current, [sessionId]: report }));
+  }
 
   return <section className={`px-5 py-8 transition-[padding] lg:px-8 ${aiOpen ? "xl:pr-[410px]" : ""}`}>
     <div className="border-b border-mirage-border pb-6"><p className="text-sm font-semibold uppercase tracking-[.24em] text-mirage-cyan">Garage OS</p><h1 className="mt-2 text-4xl font-semibold">Telemetry Inbox</h1><p className="mt-2 text-sm text-mirage-muted">Upload once, identify the vehicle, then route the drive to the right workspace.</p></div>
@@ -157,7 +165,7 @@ export function TelemetryInboxPage() {
       </div>}
       {message && <p className="mt-4 text-sm text-mirage-muted">{message}</p>}
     </Card>
-    <div className="mt-8 grid gap-4">{sessions.map((session) => { const vehicle = fleet.find((item) => item.id === session.vehicleId); const report = reports[session.id]; return <Card key={session.id} className="p-5"><div className="flex flex-wrap items-start justify-between gap-4"><div><div className="flex items-center gap-2"><Activity size={17} className="text-mirage-cyan"/><h3 className="font-semibold">{session.label}</h3></div><p className="mt-2 text-sm text-mirage-muted">{vehicle ? `${vehicle.year} ${vehicle.make} ${vehicle.model} · ${destinationNames[vehicle.purpose]} · ` : ""}{new Date(session.startedAt).toLocaleString()} · {session.metrics.length} metrics</p></div><div className="flex flex-wrap gap-2"><Button variant="secondary" onClick={() => draftReport(session.id)}>Build draft</Button>{report?.status === "draft" && <Button onClick={() => publish(session.id)}><Send size={15}/> Publish</Button>}{report?.status === "published" && <Button variant="ghost" onClick={() => navigator.clipboard.writeText(`${location.origin}/drive-reports/${report.publicToken}`)}><Copy size={15}/> Copy link</Button>}<Button variant="danger" disabled={removeSession.isPending} onClick={() => { if (window.confirm("Delete this telemetry drive and its associated report? This cannot be undone.")) removeSession.mutate(session.id); }}><Trash2 size={15}/> Delete drive</Button></div></div>{report && <p className="mt-4 border-l-2 border-mirage-cyan pl-4 text-sm text-mirage-muted">{report.overview}</p>}</Card>; })}</div>
+    <div className="mt-8 grid gap-4">{sessions.map((session) => { const vehicle = fleet.find((item) => item.id === session.vehicleId); const report = reports[session.id]; const access = reportAccess[session.id] ?? { visibility: "private" as const }; return <Card key={session.id} className="p-5"><div className="flex flex-wrap items-start justify-between gap-4"><div><div className="flex items-center gap-2"><Activity size={17} className="text-mirage-cyan"/><h3 className="font-semibold">{session.label}</h3></div><p className="mt-2 text-sm text-mirage-muted">{vehicle ? `${vehicle.year} ${vehicle.make} ${vehicle.model} · ${destinationNames[vehicle.purpose]} · ` : ""}{new Date(session.startedAt).toLocaleString()} · {session.metrics.length} metrics</p></div><div className="flex flex-wrap gap-2"><Button variant="secondary" onClick={() => draftReport(session.id)}>Build draft</Button>{report?.status === "published" && <Button variant="ghost" onClick={() => navigator.clipboard.writeText(`${location.origin}/drive-reports/${report.publicToken}`)}><Copy size={15}/> Copy link</Button>}<Button variant="danger" disabled={removeSession.isPending} onClick={() => { if (window.confirm("Delete this telemetry drive and its associated report? This cannot be undone.")) removeSession.mutate(session.id); }}><Trash2 size={15}/> Delete drive</Button></div></div>{report && <><p className="mt-4 border-l-2 border-mirage-cyan pl-4 text-sm text-mirage-muted">{report.overview}</p>{report.status === "draft" && <div className="mt-5 grid gap-3 border-t border-mirage-border pt-5 md:grid-cols-[220px_1fr_auto]"><select className="h-11 border border-mirage-border bg-mirage-secondary px-3 text-sm" value={access.visibility} onChange={(event) => setReportAccess({...reportAccess,[session.id]:{visibility:event.target.value as "private" | "customer" | "public"}})}><option value="private">Private — admins/owner</option>{signedInUser?.role === "admin" && <option value="customer">Assigned customer only</option>}<option value="public">Anyone with the link</option></select>{access.visibility === "customer" ? <select className="h-11 border border-mirage-border bg-mirage-secondary px-3 text-sm" value={access.viewerUserId ?? ""} onChange={(event) => setReportAccess({...reportAccess,[session.id]:{...access,viewerUserId:event.target.value}})}><option value="">Select registered customer</option>{customers.map((customer) => <option key={customer.id} value={customer.id}>{customer.displayName} · {customer.email}</option>)}</select> : <p className="self-center text-xs text-mirage-muted">Choose who may open the generated link.</p>}<Button onClick={() => publish(session.id)}><Send size={15}/> Publish</Button></div>}</>}</Card>; })}</div>
     {aiOpen && <aside className="fixed inset-x-3 bottom-3 top-20 z-50 overflow-y-auto border border-cyan-300/30 bg-[#071016]/95 p-5 shadow-[0_0_70px_rgba(34,211,238,.18)] backdrop-blur-xl sm:left-auto sm:right-5 sm:w-[370px] xl:right-6">
       <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-mirage-cyan via-violet-400 to-mirage-orange"/>
       <div className="flex items-start gap-3"><div className="grid size-12 shrink-0 place-items-center rounded-full bg-gradient-to-br from-mirage-cyan/30 via-violet-500/20 to-mirage-orange/20 ring-1 ring-white/15"><Bot className="text-mirage-cyan"/></div><div><p className="text-xs font-semibold uppercase tracking-[.22em] text-mirage-cyan">MirageAI</p><h2 className="mt-1 text-xl font-semibold">Telemetry copilot</h2></div><button className="ml-auto text-mirage-muted hover:text-white" aria-label="Close MirageAI" onClick={() => setAiOpen(false)}><X size={20}/></button></div>

@@ -90,6 +90,10 @@ export interface DriveReport {
   startedAt: string;
   source: string;
   metrics: MetricSummary[];
+  assessments: MetricAssessment[];
+  visibility: "private" | "customer" | "public";
+  viewerUserId?: string;
 }
+export interface MetricAssessment { key: string; referenceLow: number; referenceHigh: number; status: "within" | "mixed" | "outside"; description: string; referenceType: "generic_guidance" | "vehicle_specific"; }
 export interface MirageAIVehicleDraft { year?: number; make?: string; model?: string; trim?: string; vin?: string; mileage?: number; profileId?: string; }
 export interface MirageAIAnalysis { title: string; overview: string; observations: string[]; suggestions: string[]; vehicle: MirageAIVehicleDraft; }

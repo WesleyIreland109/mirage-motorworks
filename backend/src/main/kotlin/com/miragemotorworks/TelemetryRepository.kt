@@ -67,10 +67,25 @@ class TelemetryRepository(private val database: Database) {
         reportForUser(userId, sessionId)!!
     }
 
-    fun publish(userId: String, sessionId: String): DriveReport? { database.withConnection { c -> c.prepareStatement("""UPDATE drive_reports r SET status='published',published_at=NOW(),updated_at=NOW() FROM telemetry_sessions s JOIN owned_vehicles v ON v.id=s.vehicle_id WHERE r.session_id=s.id AND s.id=?::uuid AND v.user_id=?::uuid""").use { it.setString(1,sessionId);it.setString(2,userId);it.executeUpdate() } }; return reportForUser(userId,sessionId) }
-    fun publicReport(token: String): DriveReport? = database.withConnection { c -> queryReport(c.prepareStatement(reportSQL()+" WHERE r.public_token=? AND r.status='published'").apply { setString(1,token) }) }
+    fun publish(userId: String, sessionId: String, access: PublishReportRequest): DriveReport? {
+        require(access.visibility in setOf("private", "customer", "public"))
+        require(access.visibility != "customer" || access.viewerUserId != null)
+        database.withConnection { c -> c.prepareStatement("""UPDATE drive_reports r SET status='published',published_at=NOW(),visibility=?,viewer_user_id=?::uuid,updated_at=NOW() FROM telemetry_sessions s JOIN owned_vehicles v ON v.id=s.vehicle_id WHERE r.session_id=s.id AND s.id=?::uuid AND v.user_id=?::uuid AND (? <> 'customer' OR EXISTS (SELECT 1 FROM users u WHERE u.id=?::uuid))""").use {
+            it.setString(1,access.visibility);it.setString(2,access.viewerUserId);it.setString(3,sessionId);it.setString(4,userId);it.setString(5,access.visibility);it.setString(6,access.viewerUserId);it.executeUpdate()
+        } }
+        return reportForUser(userId,sessionId)
+    }
+    fun accessibleReport(token: String, viewer: AuthUser?): DriveReport? = database.withConnection { c ->
+        val admin = viewer?.role == "admin"
+        queryReport(c.prepareStatement(reportSQL()+" WHERE r.public_token=? AND r.status='published' AND (r.visibility='public' OR ? OR v.user_id=?::uuid OR r.viewer_user_id=?::uuid)").apply {
+            setString(1,token);setBoolean(2,admin);setString(3,viewer?.id);setString(4,viewer?.id)
+        })
+    }
     private fun reportForUser(userId:String, sessionId:String):DriveReport? = database.withConnection { c -> queryReport(c.prepareStatement(reportSQL()+" WHERE s.id=?::uuid AND v.user_id=?::uuid").apply {setString(1,sessionId);setString(2,userId)}) }
-    private fun reportSQL()="""SELECT r.*,s.label session_label,s.started_at,s.source,s.metrics_json,v.year,v.make,v.model FROM drive_reports r JOIN telemetry_sessions s ON s.id=r.session_id JOIN owned_vehicles v ON v.id=s.vehicle_id"""
-    private fun queryReport(statement:java.sql.PreparedStatement):DriveReport? = statement.use { s -> s.executeQuery().use { r -> if(!r.next()) null else DriveReport(r.getString("id"),r.getString("session_id"),r.getString("public_token"),r.getString("title"),r.getString("overview"),json.decodeFromString(r.getString("observations_json")),r.getString("status"),r.getObject("published_at")?.toString(),"${r.getInt("year")} ${r.getString("make")} ${r.getString("model")}",r.getString("session_label"),r.getString("started_at"),r.getString("source"),json.decodeFromString(r.getString("metrics_json"))) } }
+    private fun reportSQL()="""SELECT r.*,s.label session_label,s.started_at,s.source,s.metrics_json,v.year,v.make,v.model,v.user_id owner_user_id FROM drive_reports r JOIN telemetry_sessions s ON s.id=r.session_id JOIN owned_vehicles v ON v.id=s.vehicle_id"""
+    private fun queryReport(statement:java.sql.PreparedStatement):DriveReport? = statement.use { s -> s.executeQuery().use { r -> if(!r.next()) null else {
+        val metrics: List<MetricSummary> = json.decodeFromString(r.getString("metrics_json"))
+        DriveReport(r.getString("id"),r.getString("session_id"),r.getString("public_token"),r.getString("title"),r.getString("overview"),json.decodeFromString(r.getString("observations_json")),r.getString("status"),r.getObject("published_at")?.toString(),"${r.getInt("year")} ${r.getString("make")} ${r.getString("model")}",r.getString("session_label"),r.getString("started_at"),r.getString("source"),metrics,MetricReferences.assess(metrics),r.getString("visibility"),r.getString("viewer_user_id"))
+    } } }
     private fun ResultSet.toSession()=TelemetrySession(getString("id"),getString("vehicle_id"),getString("external_session_id"),getString("label"),getString("started_at"),getLong("duration_ms"),getLong("samples"),getLong("obd_requests"),getLong("obd_errors"),getString("source"),json.decodeFromString(getString("metrics_json")),getString("imported_at"),(getObject("recorded_mileage") as? Number)?.toInt())
 }

@@ -258,7 +258,8 @@ fun Application.module(config: AppConfig, vehicles: VehicleRepository, auth: Aut
             }
             post("/{id}/publish") {
                 val user = call.authenticatedUser(auth) ?: return@post
-                val report = telemetry.publish(user.id, call.parameters["id"].orEmpty())
+                val access = runCatching { call.receive<PublishReportRequest>() }.getOrDefault(PublishReportRequest())
+                val report = runCatching { telemetry.publish(user.id, call.parameters["id"].orEmpty(), access) }.getOrNull()
                 if (report == null) call.respond(HttpStatusCode.NotFound, mapOf("message" to "Draft report not found")) else call.respond(report)
             }
         }
@@ -273,14 +274,15 @@ fun Application.module(config: AppConfig, vehicles: VehicleRepository, auth: Aut
             if (input == null || input.metrics.size > 100) {
                 call.respond(HttpStatusCode.BadRequest, mapOf("message" to "Invalid telemetry summary")); return@post
             }
-            val result = mirageAI.analyze(input)
+            val result = mirageAI.analyze(input.copy(assessments = MetricReferences.assess(input.metrics)))
             if (result == null) call.respond(HttpStatusCode.ServiceUnavailable, mapOf("message" to "MirageAI is not configured or temporarily unavailable"))
             else call.respond(result)
         }
 
         get("/api/drive-reports/{token}") {
-            val report = telemetry.publicReport(call.parameters["token"].orEmpty())
-            if (report == null) call.respond(HttpStatusCode.NotFound, mapOf("message" to "Report not found")) else call.respond(report)
+            val viewer = auth.findUserByToken(call.request.cookies[SESSION_COOKIE])
+            val report = telemetry.accessibleReport(call.parameters["token"].orEmpty(), viewer)
+            if (report == null) call.respond(if (viewer == null) HttpStatusCode.Unauthorized else HttpStatusCode.NotFound, mapOf("message" to "Report not found or access not granted")) else call.respond(report)
         }
     }
 }

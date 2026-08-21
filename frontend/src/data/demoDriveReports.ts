@@ -79,4 +79,6 @@ export const dacoitDriveReport: DriveReport = {
       max: 65,
     },
   ],
+  assessments: [],
+  visibility: "private",
 };

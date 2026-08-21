@@ -147,9 +147,11 @@ export async function saveDriveReport(
 }
 export async function publishDriveReport(
   sessionId: string,
+  access: { visibility: "private" | "customer" | "public"; viewerUserId?: string },
 ): Promise<DriveReport> {
   return request<DriveReport>(`/telemetry-sessions/${sessionId}/publish`, {
     method: "POST",
+    body: JSON.stringify(access),
   });
 }
 export async function getDriveReport(token: string): Promise<DriveReport> {
