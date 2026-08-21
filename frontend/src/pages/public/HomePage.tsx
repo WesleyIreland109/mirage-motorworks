@@ -1,4 +1,14 @@
-import { ArrowRight, ClipboardCheck, FileText, Gauge, Sparkles } from "lucide-react";
+import {
+  Activity,
+  ArrowRight,
+  BadgeDollarSign,
+  ClipboardCheck,
+  Gauge,
+  RadioTower,
+  Smartphone,
+  Sparkles,
+  Wrench,
+} from "lucide-react";
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
@@ -7,11 +17,18 @@ import { listVehicles } from "@/api/client";
 import { VehicleCard } from "@/components/VehicleCard";
 import { Button } from "@/components/ui/button";
 
-const standard = [
-  { label: "Selection", icon: Sparkles, text: "Cars chosen for character, condition, and long-term desirability." },
-  { label: "Inspection", icon: Gauge, text: "Mechanical review before a vehicle earns the Mirage name." },
-  { label: "Documentation", icon: FileText, text: "Records, context, known flaws, and ownership notes organized clearly." },
-  { label: "Presentation", icon: ClipboardCheck, text: "Prepared, photographed, and described with editorial care." },
+const capabilities = [
+  { label: "Garage OS", icon: Gauge, text: "Vehicle intake, VIN notes, checklists, repair status, documents, and handoff details in one workspace." },
+  { label: "Telemetry Inbox", icon: RadioTower, text: "Recorded drive files become readable sessions with metrics, observations, and report drafts." },
+  { label: "Shop Updates", icon: Smartphone, text: "Shareable progress links keep techs, owners, and the garage team aligned without thread archaeology." },
+  { label: "Flip Desk", icon: BadgeDollarSign, text: "Track acquisition cost, target sale price, prep work, and margin while the car moves through the shop." },
+];
+
+const operatingLoops = [
+  { label: "Acquire", icon: Sparkles, text: "Shortlist cars with enthusiast upside, known risks, and a clear resale thesis." },
+  { label: "Inspect", icon: Wrench, text: "Turn unknowns into mechanical tasks, measurements, documents, and parts decisions." },
+  { label: "Analyze", icon: Activity, text: "Use telemetry and road-test data to support the human inspection instead of replacing it." },
+  { label: "Publish", icon: ClipboardCheck, text: "Move the finished car into inventory with a stronger story, cleaner proof, and fewer loose ends." },
 ];
 
 export function HomePage() {
@@ -38,22 +55,23 @@ export function HomePage() {
             transition={{ duration: 0.28 }}
           >
             <h1 className="max-w-5xl font-display text-6xl font-bold leading-[0.9] text-white sm:text-7xl lg:text-8xl">
-              Curated Cars.
+              Garage Software.
               <br />
-              Timeless Driving.
+              Real Flip Ops.
             </h1>
             <p className="mt-7 max-w-2xl text-lg leading-8 text-zinc-300">
-              Every vehicle is carefully selected, mechanically inspected,
-              documented, and prepared before it joins the Mirage collection.
+              Mirage Motorworks is an enthusiast garage powered by its own
+              operating system: intake, inspections, telemetry, shop updates,
+              documents, flip economics, and public inventory in one loop.
             </p>
             <div className="mt-10 flex flex-wrap gap-4">
               <Button asChild>
-                <Link to="/inventory">
-                  Browse Inventory <ArrowRight size={17} />
+                <Link to="/admin">
+                  Open Garage OS <ArrowRight size={17} />
                 </Link>
               </Button>
               <Button asChild variant="secondary">
-                <Link to="/about">Our Process</Link>
+                <Link to="/inventory">View Flip Inventory</Link>
               </Button>
             </div>
           </motion.div>
@@ -63,8 +81,8 @@ export function HomePage() {
               Current Focus
             </p>
             <p className="mt-4 text-3xl font-semibold leading-tight">
-              Manual cars, limited models, and affordable enthusiast builds
-              prepared with an OEM+ mindset.
+              Built for manual cars, limited models, affordable enthusiast
+              flips, and OEM+ prep that needs better software than a notes app.
             </p>
           </div>
         </div>
@@ -74,11 +92,16 @@ export function HomePage() {
         <div className="mb-10 flex flex-col justify-between gap-5 md:flex-row md:items-end">
           <div>
             <p className="text-sm font-semibold uppercase tracking-[0.28em] text-mirage-pink">
-              Featured Inventory
+              Flip Inventory
             </p>
             <h2 className="mt-3 text-4xl font-bold text-white md:text-5xl">
-              Selected, not stocked.
+              The cars are the proving ground.
             </h2>
+            <p className="mt-4 max-w-2xl text-sm leading-7 text-mirage-muted">
+              Every listing starts as an operating record: acquisition thesis,
+              inspection notes, repair decisions, telemetry context, documents,
+              and margin targets before it becomes a public page.
+            </p>
           </div>
           <Button asChild variant="secondary">
             <Link to="/inventory">View all cars</Link>
@@ -94,14 +117,14 @@ export function HomePage() {
       <section className="mx-auto max-w-7xl px-5 py-24">
         <div className="mb-10">
           <p className="text-sm font-semibold uppercase tracking-[0.28em] text-mirage-cyan">
-            The Mirage Standard
+            Product Surface
           </p>
           <h2 className="mt-3 text-4xl font-bold text-white md:text-5xl">
-            Our four-step process.
+            What Garage OS is built to run.
           </h2>
         </div>
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          {standard.map((item) => {
+          {capabilities.map((item) => {
             const Icon = item.icon;
             return (
               <div key={item.label} className="border border-mirage-border bg-mirage-panel p-6">
@@ -115,12 +138,42 @@ export function HomePage() {
       </section>
 
       <section className="mx-auto max-w-7xl px-5 pb-24">
-        <div className="border-y border-mirage-border py-12">
+        <div className="grid gap-10 border-y border-mirage-border py-16 lg:grid-cols-[0.75fr_1.25fr] lg:items-start">
+          <div>
+            <p className="text-sm font-semibold uppercase tracking-[0.28em] text-mirage-orange">
+              Operating Loop
+            </p>
+            <h2 className="mt-3 text-4xl font-bold text-white md:text-5xl">
+              From rough lead to sellable story.
+            </h2>
+            <p className="mt-5 text-sm leading-7 text-mirage-muted">
+              The flipping side stays core: Mirage uses real cars to pressure
+              test the software, expose messy shop handoffs, and prove that
+              better records create better decisions.
+            </p>
+          </div>
+          <div className="grid gap-4 md:grid-cols-2">
+            {operatingLoops.map((item) => {
+              const Icon = item.icon;
+              return (
+                <div key={item.label} className="border border-white/[0.06] bg-mirage-secondary p-5">
+                  <Icon className="text-mirage-pink" size={22} />
+                  <h3 className="mt-6 text-xl font-semibold">{item.label}</h3>
+                  <p className="mt-3 text-sm leading-6 text-mirage-muted">{item.text}</p>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </section>
+
+      <section className="mx-auto max-w-7xl px-5 pb-24">
+        <div className="py-12">
           <p className="text-sm font-semibold uppercase tracking-[0.28em] text-mirage-pink">
-            Garage Journal
+            Product Notes
           </p>
           <div className="mt-6 grid gap-6 md:grid-cols-3">
-            {["Buying Guides", "Auction Finds", "Build Stories"].map((title) => (
+            {["Telemetry Dashboard", "Mobile Shop Updates", "Flip Economics"].map((title) => (
               <Link
                 key={title}
                 to="/journal"

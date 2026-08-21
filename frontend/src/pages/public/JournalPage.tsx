@@ -1,17 +1,17 @@
 const posts = [
-  ["Buying Guides", "How to evaluate records before a car ever hits a lift."],
-  ["Auction Finds", "What looks interesting this week, and what still needs proof."],
-  ["Build Stories", "The prep notes, repairs, and small decisions that make a car feel right."],
+  ["Garage OS", "How intake, checklists, notes, documents, and handoffs turn car work into an operating record."],
+  ["Telemetry Dashboard", "Recorded drives, OBD ranges, MirageAI summaries, and report links for cars under review."],
+  ["Flip Notes", "Acquisition thesis, prep cost, target price, and the decisions that make a car worth listing."],
 ];
 
 export function JournalPage() {
   return (
     <main className="mx-auto max-w-7xl px-5 pb-24 pt-36">
       <p className="text-sm font-semibold uppercase tracking-[0.28em] text-mirage-orange">
-        Garage Journal
+        Product Notes
       </p>
       <h1 className="mt-4 text-5xl font-black tracking-tight md:text-7xl">
-        Notes from the floor.
+        Notes from the product floor.
       </h1>
       <div className="mt-12 grid gap-5 md:grid-cols-3">
         {posts.map(([title, description]) => (

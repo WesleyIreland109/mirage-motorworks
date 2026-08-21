@@ -6,9 +6,9 @@ import { Logo } from "@/components/Logo";
 
 const nav = [
   { to: "/", label: "Home" },
-  { to: "/inventory", label: "Inventory" },
+  { to: "/inventory", label: "Flips" },
   { to: "/about", label: "About" },
-  { to: "/journal", label: "Garage Journal" },
+  { to: "/journal", label: "Product Notes" },
   { to: "/contact", label: "Contact" },
 ];
 
@@ -43,7 +43,7 @@ export function PublicLayout() {
               to="/admin"
               className="border border-mirage-border px-3 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-mirage-muted transition hover:border-mirage-cyan hover:text-white"
             >
-              Account
+              Garage OS
             </Link>
           </nav>
           <button
@@ -85,7 +85,7 @@ export function PublicLayout() {
               onClick={closeMobileMenu}
               className="mt-2 border border-mirage-border px-4 py-3 text-sm font-semibold uppercase tracking-[0.2em] text-mirage-muted transition hover:border-mirage-cyan hover:bg-white/[0.06] hover:text-white"
             >
-              Account
+              Garage OS
             </Link>
           </nav>
         </div>
@@ -96,13 +96,13 @@ export function PublicLayout() {
           <div>
             <Logo />
             <p className="mt-5 max-w-xl text-sm leading-7 text-mirage-muted">
-              Carefully selected enthusiast cars, documented and prepared with a
-              standard that favors longevity over volume.
+              Garage OS, telemetry workflows, shop updates, and enthusiast flip
+              operations built around real cars and clean records.
             </p>
           </div>
           <div className="grid gap-4 text-sm text-mirage-muted sm:grid-cols-2">
             <Link to="/inventory" className="hover:text-white">
-              Inventory
+              Flips
             </Link>
             <Link to="/about" className="hover:text-white">
               About

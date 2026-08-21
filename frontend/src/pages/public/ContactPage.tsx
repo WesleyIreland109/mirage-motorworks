@@ -12,11 +12,12 @@ export function ContactPage() {
           Contact
         </p>
         <h1 className="mt-4 text-5xl font-black leading-none tracking-tight md:text-7xl">
-          Start with the car. Continue with the story.
+          Bring the car, the data, or the workflow.
         </h1>
         <p className="mt-7 text-lg leading-8 text-mirage-muted">
-          For acquisition leads, collection questions, or a specific vehicle
-          dossier, send a note. The response will be direct, detailed, and human.
+          For Garage OS feedback, telemetry workflow ideas, flip leads, or a
+          specific vehicle dossier, send a note. The response will be direct,
+          detailed, and human.
         </p>
       </div>
       <form className="grid gap-5 border border-mirage-border bg-mirage-panel p-6">
@@ -25,7 +26,7 @@ export function ContactPage() {
           <Input type="email" placeholder="Email" />
         </div>
         <Input placeholder="Subject" />
-        <Textarea placeholder="Tell us what caught your eye." />
+        <Textarea placeholder="Tell us what you are trying to track, fix, import, or flip." />
         <Button type="button" className="w-fit">
           <Send size={17} /> Send Inquiry
         </Button>

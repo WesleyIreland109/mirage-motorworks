@@ -33,7 +33,7 @@ export function VehicleDetailsPage() {
         <div className="absolute inset-0 bg-gradient-to-t from-mirage-bg via-black/45 to-black/20" />
         <div className="relative z-10 mx-auto flex min-h-[58vh] max-w-7xl flex-col justify-end">
           <Link to="/inventory" className="mb-8 inline-flex items-center gap-2 text-sm text-zinc-300 hover:text-white">
-            <ArrowLeft size={16} /> Back to inventory
+            <ArrowLeft size={16} /> Back to flips
           </Link>
           <StatusBadge status={vehicle.status} />
           <h1 className="mt-5 max-w-5xl text-5xl font-black leading-none tracking-tight md:text-8xl">
@@ -60,9 +60,9 @@ export function VehicleDetailsPage() {
           </div>
           <div className="mt-10 grid gap-8 lg:grid-cols-[1fr_0.8fr]">
             <div>
-              <h2 className="text-3xl font-semibold">Story</h2>
+              <h2 className="text-3xl font-semibold">Flip Thesis</h2>
               <p className="mt-4 text-lg leading-9 text-zinc-300">{vehicle.story}</p>
-              <h2 className="mt-10 text-3xl font-semibold">Inspection Notes</h2>
+              <h2 className="mt-10 text-3xl font-semibold">Garage OS Notes</h2>
               <p className="mt-4 text-lg leading-9 text-zinc-300">{vehicle.inspectionNotes}</p>
             </div>
             <div>
@@ -95,7 +95,8 @@ export function VehicleDetailsPage() {
           <p className="mt-4 text-3xl font-semibold">{formatCurrency(vehicle.askingPrice)}</p>
           <p className="mt-4 text-sm leading-7 text-mirage-muted">
             Request the complete dossier, inspection notes, and a conversation
-            about fit. Mirage does not do pressure.
+            about fit. This listing is the public output of the prep record,
+            not a pressure-sale landing page.
           </p>
           <Button asChild className="mt-6 w-full">
             <Link to="/contact">

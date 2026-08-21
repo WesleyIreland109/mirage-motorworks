@@ -30,11 +30,12 @@ export function InventoryPage() {
             Inventory
           </p>
           <h1 className="mt-4 text-5xl font-black tracking-tight md:text-7xl">
-            The Collection
+            Flip Inventory
           </h1>
           <p className="mt-5 max-w-2xl text-lg leading-8 text-mirage-muted">
-            Cars with a point of view. Each listing is treated like a dossier,
-            not a commodity tile.
+            Cars with a point of view, tracked from acquisition through prep.
+            Each listing is the public side of a Garage OS record, not a
+            commodity tile.
           </p>
         </div>
         <label className="relative block">
@@ -43,7 +44,7 @@ export function InventoryPage() {
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             className="pl-10"
-            placeholder="Search collection"
+            placeholder="Search flips"
           />
         </label>
       </div>
@@ -58,7 +59,7 @@ export function InventoryPage() {
       </div>
       {!isLoading && !isError && filtered.length === 0 && (
         <div className="mt-10 border border-mirage-border bg-mirage-panel p-8 text-center text-mirage-muted">
-          No vehicles currently match this collection.
+          No vehicles currently match this inventory.
         </div>
       )}
       {isError && (
