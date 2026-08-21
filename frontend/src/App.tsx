@@ -8,9 +8,12 @@ import { DriveReportPage } from "@/pages/public/DriveReportPage";
 import { PlaceholderAdminPage } from "@/pages/admin/PlaceholderAdminPage";
 import { AboutPage } from "@/pages/public/AboutPage";
 import { ContactPage } from "@/pages/public/ContactPage";
+import { GarageOSPage } from "@/pages/public/GarageOSPage";
 import { HomePage } from "@/pages/public/HomePage";
 import { InventoryPage } from "@/pages/public/InventoryPage";
+import { InvestorProspectusPage } from "@/pages/public/InvestorProspectusPage";
 import { JournalPage } from "@/pages/public/JournalPage";
+import { TelemetryDashboardPage } from "@/pages/public/TelemetryDashboardPage";
 import { VehicleUpdatePage } from "@/pages/public/VehicleUpdatePage";
 import { VehicleDetailsPage } from "@/pages/public/VehicleDetailsPage";
 import { LoginPage } from "@/pages/admin/LoginPage";
@@ -50,6 +53,9 @@ export function App() {
         <Route path="inventory" element={<InventoryPage />} />
         <Route path="inventory/:slug" element={<VehicleDetailsPage />} />
         <Route path="about" element={<AboutPage />} />
+        <Route path="garage-os" element={<GarageOSPage />} />
+        <Route path="telemetry-dashboard" element={<TelemetryDashboardPage />} />
+        <Route path="investor-prospectus" element={<InvestorProspectusPage />} />
         <Route path="contact" element={<ContactPage />} />
         <Route path="journal" element={<JournalPage />} />
       </Route>

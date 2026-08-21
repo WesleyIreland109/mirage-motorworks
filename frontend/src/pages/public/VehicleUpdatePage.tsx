@@ -81,7 +81,7 @@ export function VehicleUpdatePage({ slugOverride }: VehicleUpdatePageProps = {})
             <Button asChild variant="secondary" size="sm" className="whitespace-nowrap">
               <Link to="/admin">
                 <ArrowLeft size={15} />
-                Garage OS
+                GarageOS
               </Link>
             </Button>
           </div>

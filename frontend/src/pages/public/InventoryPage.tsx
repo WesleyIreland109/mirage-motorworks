@@ -30,12 +30,12 @@ export function InventoryPage() {
             Inventory
           </p>
           <h1 className="mt-4 text-5xl font-black tracking-tight md:text-7xl">
-            Flip Inventory
+            Refurbished Inventory
           </h1>
           <p className="mt-5 max-w-2xl text-lg leading-8 text-mirage-muted">
-            Cars with a point of view, tracked from acquisition through prep.
-            Each listing is the public side of a Garage OS record, not a
-            commodity tile.
+            Neglected enthusiast cars, brought back with a point of view and
+            tracked from acquisition through prep. Each listing is the public
+            side of a GarageOS record, not a commodity tile.
           </p>
         </div>
         <label className="relative block">
@@ -44,7 +44,7 @@ export function InventoryPage() {
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             className="pl-10"
-            placeholder="Search flips"
+            placeholder="Search inventory"
           />
         </label>
       </div>

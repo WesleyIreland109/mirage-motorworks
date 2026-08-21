@@ -6,10 +6,11 @@ import { Logo } from "@/components/Logo";
 
 const nav = [
   { to: "/", label: "Home" },
-  { to: "/inventory", label: "Flips" },
+  { to: "/inventory", label: "Inventory" },
   { to: "/about", label: "About" },
-  { to: "/journal", label: "Product Notes" },
-  { to: "/contact", label: "Contact" },
+  { to: "/garage-os", label: "GarageOS" },
+  { to: "/telemetry-dashboard", label: "Telemetry Dashboard" },
+  { to: "/investor-prospectus", label: "Investor Prospectus" },
 ];
 
 export function PublicLayout() {
@@ -22,14 +23,14 @@ export function PublicLayout() {
       <header className="fixed left-0 right-0 top-0 z-50 border-b border-white/10 bg-mirage-bg/72 backdrop-blur-xl">
         <div className="mx-auto flex h-20 max-w-7xl items-center justify-between px-5">
           <Logo />
-          <nav className="hidden items-center gap-8 md:flex">
+          <nav className="hidden items-center gap-4 lg:flex xl:gap-6">
             {nav.map((item) => (
               <NavLink
                 key={item.to}
                 to={item.to}
                 end={item.to === "/"}
                 className={({ isActive }) =>
-                  `text-xs font-semibold uppercase tracking-[0.22em] transition ${
+                  `text-[11px] font-semibold uppercase tracking-[0.14em] transition xl:text-xs xl:tracking-[0.2em] ${
                     isActive
                       ? "mirage-wordmark"
                       : "text-mirage-muted hover:text-white"
@@ -41,13 +42,13 @@ export function PublicLayout() {
             ))}
             <Link
               to="/admin"
-              className="border border-mirage-border px-3 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-mirage-muted transition hover:border-mirage-cyan hover:text-white"
+              className="border border-mirage-border px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-mirage-muted transition hover:border-mirage-cyan hover:text-white xl:text-xs xl:tracking-[0.2em]"
             >
-              Garage OS
+              App Login
             </Link>
           </nav>
           <button
-            className="border border-mirage-border p-2 text-mirage-muted transition hover:border-mirage-cyan hover:text-white md:hidden"
+            className="border border-mirage-border p-2 text-mirage-muted transition hover:border-mirage-cyan hover:text-white lg:hidden"
             aria-controls="mobile-navigation"
             aria-expanded={isMobileMenuOpen}
             aria-label={isMobileMenuOpen ? "Close navigation" : "Open navigation"}
@@ -58,7 +59,7 @@ export function PublicLayout() {
         </div>
         <div
           id="mobile-navigation"
-          className={`border-t border-white/10 bg-mirage-bg/95 px-5 pb-5 pt-2 shadow-glass backdrop-blur-xl transition md:hidden ${
+          className={`border-t border-white/10 bg-mirage-bg/95 px-5 pb-5 pt-2 shadow-glass backdrop-blur-xl transition lg:hidden ${
             isMobileMenuOpen ? "block" : "hidden"
           }`}
         >
@@ -85,7 +86,7 @@ export function PublicLayout() {
               onClick={closeMobileMenu}
               className="mt-2 border border-mirage-border px-4 py-3 text-sm font-semibold uppercase tracking-[0.2em] text-mirage-muted transition hover:border-mirage-cyan hover:bg-white/[0.06] hover:text-white"
             >
-              Garage OS
+              App Login
             </Link>
           </nav>
         </div>
@@ -96,16 +97,23 @@ export function PublicLayout() {
           <div>
             <Logo />
             <p className="mt-5 max-w-xl text-sm leading-7 text-mirage-muted">
-              Garage OS, telemetry workflows, shop updates, and enthusiast flip
-              operations built around real cars and clean records.
+              GarageOS, telemetry workflows, instant shop updates, and
+              refurbished enthusiast-car inventory powered by software at the
+              core of the business.
             </p>
           </div>
           <div className="grid gap-4 text-sm text-mirage-muted sm:grid-cols-2">
             <Link to="/inventory" className="hover:text-white">
-              Flips
+              Inventory
             </Link>
             <Link to="/about" className="hover:text-white">
               About
+            </Link>
+            <Link to="/garage-os" className="hover:text-white">
+              GarageOS
+            </Link>
+            <Link to="/telemetry-dashboard" className="hover:text-white">
+              Telemetry
             </Link>
             <a href="mailto:hello@miragemotorworks.com" className="inline-flex items-center gap-2 hover:text-white">
               <Mail size={15} /> Email

@@ -11,16 +11,16 @@ export function AboutPage() {
         <div className="h-full min-h-96 bg-[url('https://images.unsplash.com/photo-1493238792000-8113da705763?auto=format&fit=crop&w=1400&q=85')] bg-cover bg-center" />
         <div className="space-y-7 text-lg leading-9 text-zinc-300">
           <p>
-            Mirage Motorworks is being built around Garage OS: a software layer
+            Mirage Motorworks is being built around GarageOS: a software layer
             for enthusiast garages that need better intake, inspection,
             telemetry, documentation, repair tracking, and handoff tools.
           </p>
           <p>
             The cars still matter. Manual cars, affordable enthusiast models,
-            and OEM+ flips are the live test bench for the product. Every
-            acquisition exposes the real work: what is known, what is unknown,
-            what needs parts, what a road test proved, and what the next person
-            in the garage needs to see.
+            and OEM+ refurbishments are the live test bench for the product.
+            Every acquisition exposes the real work: what is known, what is
+            unknown, what needs parts, what a road test proved, and what the
+            next person in the garage needs to see.
           </p>
           <p>
             The public experience should feel premium because the operation is
