@@ -1,4 +1,5 @@
-import { Navigate, Route, Routes, useSearchParams } from "react-router-dom";
+import { useEffect } from "react";
+import { Navigate, Route, Routes, useLocation, useSearchParams } from "react-router-dom";
 
 import { AdminLayout } from "@/layouts/AdminLayout";
 import { PublicLayout } from "@/layouts/PublicLayout";
@@ -40,6 +41,23 @@ function HomeRoute() {
   return <HomePage />;
 }
 
+function ScrollToTop() {
+  const { pathname, search, hash } = useLocation();
+
+  useEffect(() => {
+    if (hash) {
+      window.setTimeout(() => {
+        document.querySelector(hash)?.scrollIntoView({ block: "start" });
+      }, 0);
+      return;
+    }
+
+    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+  }, [pathname, search, hash]);
+
+  return null;
+}
+
 export function App() {
   const { data: user } = useQuery({
     queryKey: ["auth-user"],
@@ -47,69 +65,72 @@ export function App() {
     retry: false,
   });
   return (
-    <Routes>
-      <Route element={<PublicLayout />}>
-        <Route index element={<HomeRoute />} />
-        <Route path="inventory" element={<InventoryPage />} />
-        <Route path="inventory/:slug" element={<VehicleDetailsPage />} />
-        <Route path="about" element={<AboutPage />} />
-        <Route path="garage-os" element={<GarageOSPage />} />
-        <Route path="telemetry-dashboard" element={<TelemetryDashboardPage />} />
-        <Route path="investor-prospectus" element={<InvestorProspectusPage />} />
-        <Route path="contact" element={<ContactPage />} />
-        <Route path="journal" element={<JournalPage />} />
-      </Route>
-      <Route path="updates/:slug" element={<VehicleUpdatePage />} />
-      <Route
-        path="drive-reports/dacoit-20260819"
-        element={<DacoitDriveReportPage />}
-      />
-      <Route path="drive-reports/:token" element={<DriveReportPage />} />
-      <Route path="login" element={<LoginPage signedIn={Boolean(user)} />} />
-      <Route path="register" element={<RegisterPage signedIn={Boolean(user)} />} />
-      <Route path="forgot-password" element={<ForgotPasswordPage />} />
-      <Route path="reset-password" element={<ResetPasswordPage />} />
-      <Route element={<RequireAuth />}>
-        <Route path="admin" element={<AdminLayout />}>
-          <Route index element={<AdminDashboard />} />
-          <Route path="telemetry" element={<TelemetryInboxPage />} />
-          <Route path="vehicles" element={<Navigate to="/admin" replace />} />
-          <Route
-            path="working-on"
-            element={<GarageWorkspacePage purpose="working_on" />}
-          />
-          <Route
-            path="flips"
-            element={<GarageWorkspacePage purpose="flip" />}
-          />
-          <Route
-            path="inventory"
-            element={<AdminInventory />}
-          />
-          <Route path="users" element={<AdminUsers />} />
-          <Route
-            path="expenses"
-            element={<PlaceholderAdminPage title="Expenses" />}
-          />
-          <Route
-            path="repairs"
-            element={<PlaceholderAdminPage title="Repairs" />}
-          />
-          <Route
-            path="analytics"
-            element={<PlaceholderAdminPage title="Analytics" />}
-          />
-          <Route
-            path="documents"
-            element={<PlaceholderAdminPage title="Documents" />}
-          />
-          <Route
-            path="settings"
-            element={<ProfilePage />}
-          />
+    <>
+      <ScrollToTop />
+      <Routes>
+        <Route element={<PublicLayout />}>
+          <Route index element={<HomeRoute />} />
+          <Route path="inventory" element={<InventoryPage />} />
+          <Route path="inventory/:slug" element={<VehicleDetailsPage />} />
+          <Route path="about" element={<AboutPage />} />
+          <Route path="garage-os" element={<GarageOSPage />} />
+          <Route path="telemetry-dashboard" element={<TelemetryDashboardPage />} />
+          <Route path="investor-prospectus" element={<InvestorProspectusPage />} />
+          <Route path="contact" element={<ContactPage />} />
+          <Route path="journal" element={<JournalPage />} />
         </Route>
-      </Route>
-      <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
+        <Route path="updates/:slug" element={<VehicleUpdatePage />} />
+        <Route
+          path="drive-reports/dacoit-20260819"
+          element={<DacoitDriveReportPage />}
+        />
+        <Route path="drive-reports/:token" element={<DriveReportPage />} />
+        <Route path="login" element={<LoginPage signedIn={Boolean(user)} />} />
+        <Route path="register" element={<RegisterPage signedIn={Boolean(user)} />} />
+        <Route path="forgot-password" element={<ForgotPasswordPage />} />
+        <Route path="reset-password" element={<ResetPasswordPage />} />
+        <Route element={<RequireAuth />}>
+          <Route path="admin" element={<AdminLayout />}>
+            <Route index element={<AdminDashboard />} />
+            <Route path="telemetry" element={<TelemetryInboxPage />} />
+            <Route path="vehicles" element={<Navigate to="/admin" replace />} />
+            <Route
+              path="working-on"
+              element={<GarageWorkspacePage purpose="working_on" />}
+            />
+            <Route
+              path="flips"
+              element={<GarageWorkspacePage purpose="flip" />}
+            />
+            <Route
+              path="inventory"
+              element={<AdminInventory />}
+            />
+            <Route path="users" element={<AdminUsers />} />
+            <Route
+              path="expenses"
+              element={<PlaceholderAdminPage title="Expenses" />}
+            />
+            <Route
+              path="repairs"
+              element={<PlaceholderAdminPage title="Repairs" />}
+            />
+            <Route
+              path="analytics"
+              element={<PlaceholderAdminPage title="Analytics" />}
+            />
+            <Route
+              path="documents"
+              element={<PlaceholderAdminPage title="Documents" />}
+            />
+            <Route
+              path="settings"
+              element={<ProfilePage />}
+            />
+          </Route>
+        </Route>
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </>
   );
 }

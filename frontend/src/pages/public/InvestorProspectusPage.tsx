@@ -4,9 +4,9 @@ import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 
 const thesis = [
-  ["Phase 1", "Build Mirage-owned inventory by refurbishing neglected enthusiast cars and proving the operating workflow."],
-  ["Phase 2", "Expand garage services, repairs, updates, telemetry reports, and customer-facing software surfaces."],
-  ["Phase 3", "Package the software layer into consumer and shop products once the workflow is proven by real cars."],
+  ["Immediate Use", "Investment funds the first Mirage-owned enthusiast car: acquisition, parts, repair labor, photos, listing, and carrying costs."],
+  ["Proof Vehicle", "That first build becomes a revenue event and a live demonstration of GarageOS, instant updates, telemetry reports, and operational automation."],
+  ["Upside", "The larger incentive is the software and hardware platform being developed behind the garage, which can scale beyond a single car sale."],
 ];
 
 export function InvestorProspectusPage() {
@@ -18,13 +18,15 @@ export function InvestorProspectusPage() {
             Investor Prospectus
           </p>
           <h1 className="mt-4 max-w-5xl text-5xl font-black leading-none tracking-tight md:text-7xl">
-            A software-led enthusiast car business.
+            Fund the first car. Build the platform behind it.
           </h1>
           <p className="mt-7 max-w-3xl text-lg leading-8 text-mirage-muted">
-            Mirage Motorworks starts with a real inventory model: source
-            neglected enthusiast cars, refurbish them with discipline, and sell
-            them under a trusted brand. The larger opportunity is the software
-            backbone that automates the work and can become a product itself.
+            Mirage needs investment capital for the first refurbishment: buying
+            the car, making it right, documenting it, and selling it under the
+            brand. The investor upside is that the car is only the wedge. The
+            main long-term opportunity is the software and hardware being built
+            to automate the garage, telemetry, instant updates, and customer
+            experience.
           </p>
           <div className="mt-9 flex flex-wrap gap-4">
             <Button asChild>
@@ -43,8 +45,8 @@ export function InvestorProspectusPage() {
             Business Shape
           </p>
           <p className="mt-4 text-3xl font-semibold leading-tight">
-            Inventory revenue, repair work, instant-update workflows, telemetry
-            reports, and future software products share the same engine.
+            The first vehicle creates a saleable asset. The platform creates
+            the scalable business.
           </p>
         </div>
       </section>
@@ -65,22 +67,22 @@ export function InvestorProspectusPage() {
           <p className="text-sm font-semibold uppercase tracking-[0.28em] text-mirage-orange">
             Why Now
           </p>
-          <h2 className="mt-4 text-4xl font-bold">Enthusiast cars need trust infrastructure.</h2>
+          <h2 className="mt-4 text-4xl font-bold">The first build funds proof, not just inventory.</h2>
         </div>
         <p className="text-lg leading-9 text-mirage-muted">
-          Buyers want proof. Owners want updates. Mechanics need better
-          handoffs. Small shops need software that understands actual vehicle
-          work. Mirage can prove that product inside its own garage before
-          selling it beyond the brand.
+          The initial investment helps Mirage acquire and complete the first
+          neglected enthusiast car without starving the software effort. Every
+          repair, update, telemetry session, and listing step becomes product
+          feedback for GarageOS and the in-car telemetry hardware concept.
         </p>
       </section>
 
       <section className="grid gap-4 pt-16 md:grid-cols-2 lg:grid-cols-4">
         {[
-          { icon: Car, title: "Inventory", text: "Refurbished enthusiast cars sold under the Mirage standard." },
-          { icon: Wrench, title: "Garage Services", text: "Repairs, prep, road tests, and customer-facing update workflows." },
-          { icon: Cpu, title: "Software Core", text: "GarageOS, automation, telemetry, reporting, and operational records." },
-          { icon: Layers, title: "Product Expansion", text: "Consumer products and shop software built from proven internal tools." },
+          { icon: Car, title: "First Car", text: "Capital goes into a real asset: an enthusiast car Mirage can refurbish, document, and sell." },
+          { icon: Wrench, title: "Garage Proof", text: "The repair process proves update automation, service workflow, and customer communication." },
+          { icon: Cpu, title: "Software Core", text: "GarageOS turns the build into repeatable operating software, not a one-off project." },
+          { icon: Layers, title: "Hardware + Products", text: "Telemetry hardware and future consumer/shop software become the main scale opportunity." },
         ].map((item) => {
           const Icon = item.icon;
           return (
@@ -101,9 +103,10 @@ export function InvestorProspectusPage() {
           </p>
         </div>
         <p className="mt-5 max-w-4xl text-3xl font-semibold leading-tight">
-          The brand sells cars. The garage creates trust. The software captures
-          the process. Together, they create a business that can compound beyond
-          a single vehicle sale.
+          The car creates the first proof point. GarageOS captures the workflow.
+          Telemetry hardware opens the product lane. That combination is the
+          incentive: an investable business that can become much larger than
+          refurbishing one vehicle at a time.
         </p>
       </section>
     </main>

@@ -1,7 +1,17 @@
-import { Activity, Bot, ExternalLink, FileText, Gauge, RadioTower, Share2 } from "lucide-react";
+import {
+  Activity,
+  Bot,
+  ExternalLink,
+  FileText,
+  Gauge,
+  MonitorCog,
+  RadioTower,
+  Share2,
+} from "lucide-react";
 import { Link } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
+import { assetPath } from "@/lib/assets";
 
 const telemetryCards = [
   ["Import", "Upload recorded drive files and attach them to the right car record."],
@@ -62,6 +72,53 @@ export function TelemetryDashboardPage() {
             ))}
           </div>
         </div>
+      </section>
+
+      <section className="mt-20 grid gap-6 lg:grid-cols-2">
+        <article className="overflow-hidden border border-white/[0.06] bg-mirage-panel">
+          <img
+            src={assetPath("telemetry/live-dashboard.png")}
+            alt="Live Civic Type R telemetry dashboard with green performance metrics"
+            className="aspect-[16/10] w-full object-cover object-top"
+          />
+          <div className="p-5">
+            <div className="flex items-center gap-2 text-mirage-cyan">
+              <MonitorCog size={18} />
+              <p className="text-xs font-semibold uppercase tracking-[0.2em]">
+                Picture 1
+              </p>
+            </div>
+            <p className="mt-3 text-sm leading-7 text-mirage-muted">
+              This is the live dashboard direction: the telemetry interface can
+              be customized by car and customer taste, from the metric set to
+              the visual theme. A Type R can feel technical and high-revving; a
+              grand tourer, track build, or restoration can have a completely
+              different instrument personality.
+            </p>
+          </div>
+        </article>
+
+        <article className="overflow-hidden border border-mirage-cyan/20 bg-[#061015] shadow-[0_0_70px_rgba(34,211,238,.12)]">
+          <img
+            src={assetPath("telemetry/type-r-concept.png")}
+            alt="Type R interior concept with auxiliary Mirage telemetry display"
+            className="aspect-[16/10] w-full object-cover object-center"
+          />
+          <div className="p-5">
+            <div className="flex items-center gap-2 text-mirage-cyan">
+              <RadioTower size={18} />
+              <p className="text-xs font-semibold uppercase tracking-[0.2em]">
+                Picture 2
+              </p>
+            </div>
+            <p className="mt-3 text-sm leading-7 text-mirage-muted">
+              This is the WIP in-car dashboard concept: a nice visual
+              experience for the driver, with telemetry tracking on the backend
+              so the system can automatically flag anything blaringly wrong
+              with the car and turn that data into service context.
+            </p>
+          </div>
+        </article>
       </section>
 
       <section className="mt-20 grid gap-4 md:grid-cols-4">
