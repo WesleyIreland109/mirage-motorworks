@@ -13,6 +13,7 @@ import {
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 
+import { GradientProgress } from "@/components/GradientProgress";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -166,9 +167,13 @@ export function GarageOSPage() {
               </div>
               <p className="font-display text-4xl font-bold">{progress}%</p>
             </div>
-            <div className="mt-5 h-3 overflow-hidden bg-mirage-bg">
-              <div className="h-full bg-mirage-gradient transition-all duration-300" style={{ width: `${progress}%` }} />
-            </div>
+            <GradientProgress
+              value={progress}
+              heightClassName="h-3"
+              className="mt-5"
+              ariaLabel="Camaro prep progress"
+              animate={false}
+            />
             <div className="mt-6 grid gap-3">
               {serviceSteps.map((step, index) => {
                 const isDone = index < completedSteps;
