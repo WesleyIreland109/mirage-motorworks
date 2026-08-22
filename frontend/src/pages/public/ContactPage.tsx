@@ -41,6 +41,12 @@ export function ContactPage() {
           select repair or maintenance work, or a specific vehicle dossier,
           send a note. The response will be direct, detailed, and human.
         </p>
+        <a
+          href="mailto:wesley@miragemw.com"
+          className="mt-8 inline-flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.18em] text-mirage-cyan transition hover:text-white"
+        >
+          <Send size={16} /> wesley@miragemw.com
+        </a>
       </div>
       <form className="grid gap-5 border border-mirage-border bg-mirage-panel p-6" onSubmit={submit}>
         <div className="grid gap-5 md:grid-cols-2">
