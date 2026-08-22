@@ -17,6 +17,7 @@ import { Link } from "react-router-dom";
 
 import { GradientProgress } from "@/components/GradientProgress";
 import { Button } from "@/components/ui/button";
+import { assetPath } from "@/lib/assets";
 import { formatCurrency } from "@/lib/utils";
 
 const capitalTarget = 10000;
@@ -91,6 +92,31 @@ const softwareProofCards = [
     title: "Software Dataset",
     icon: Database,
     text: "The work creates a practical dataset around repairs, prep timelines, costs, communication events, and sale readiness instead of guessing from theory.",
+  },
+];
+
+const productShowcases = [
+  {
+    title: "GarageOS Service Updates",
+    eyebrow: "Workflow Demo",
+    text: "A mechanic-facing process can become a customer or team update automatically: current stage, completed work, notes, next steps, and a clean link that can be sent by text.",
+    to: "/garage-os#instant-updates",
+  },
+  {
+    title: "Telemetry Dashboard",
+    eyebrow: "Live Data Preview",
+    text: "Recorded drives become readable sessions with RPM, speed, voltage, load, fuel, and diagnostic context that can be shaped by vehicle and customer taste.",
+    to: "/telemetry-dashboard",
+    image: assetPath("telemetry/live-dashboard.png"),
+    alt: "Live Mirage telemetry dashboard with green performance metrics",
+  },
+  {
+    title: "In-Car Device Concept",
+    eyebrow: "Hardware Direction",
+    text: "The in-car display concept turns backend telemetry into a driver-facing experience while still feeding the data layer that can catch obvious vehicle issues.",
+    to: "/telemetry-dashboard",
+    image: assetPath("telemetry/type-r-concept.png"),
+    alt: "Type R interior concept with auxiliary Mirage telemetry display",
   },
 ];
 
@@ -312,6 +338,103 @@ export function InvestorProspectusPage() {
               );
             })}
           </div>
+        </div>
+      </section>
+
+      <section className="border-y border-mirage-border py-16">
+        <div className="mb-10 flex flex-col justify-between gap-5 md:flex-row md:items-end">
+          <div>
+            <p className="text-sm font-semibold uppercase tracking-[0.28em] text-mirage-orange">
+              Product Demonstration Surface
+            </p>
+            <h2 className="mt-3 max-w-4xl text-4xl font-bold text-white md:text-5xl">
+              The software should be seen, not just described.
+            </h2>
+            <p className="mt-5 max-w-3xl text-sm leading-7 text-mirage-muted">
+              Mirage can use the same product-marketing motion that great
+              software companies use: polished previews, believable workflows,
+              live sample links, and visible proof that the garage is becoming a
+              product engine.
+            </p>
+          </div>
+          <Button asChild variant="secondary">
+            <Link to="/garage-os">
+              View GarageOS <ArrowRight size={17} />
+            </Link>
+          </Button>
+        </div>
+
+        <div className="grid gap-6 lg:grid-cols-3">
+          {productShowcases.map((item) => (
+            <Link
+              key={item.title}
+              to={item.to}
+              className="group overflow-hidden border border-white/[0.06] bg-mirage-panel transition hover:-translate-y-1 hover:border-mirage-cyan/40 hover:bg-mirage-secondary"
+            >
+              {item.image ? (
+                <img
+                  src={item.image}
+                  alt={item.alt}
+                  className="aspect-[16/10] w-full object-cover object-top"
+                />
+              ) : (
+                <div className="bg-[#071016] p-5">
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-[0.22em] text-mirage-cyan">
+                        2013 Chevrolet Camaro 2SS
+                      </p>
+                      <h3 className="mt-2 text-2xl font-semibold text-white">
+                        Prep update
+                      </h3>
+                    </div>
+                    <p className="font-display text-4xl font-bold text-white">60%</p>
+                  </div>
+                  <GradientProgress
+                    value={60}
+                    heightClassName="h-3"
+                    className="mt-5"
+                    ariaLabel="Sample Camaro prep update progress"
+                    animate={false}
+                  />
+                  <div className="mt-5 space-y-3">
+                    {[
+                      "Cooling refresh started and documented.",
+                      "Parts staged with OEM+ preference noted.",
+                      "Road test and telemetry capture queued.",
+                    ].map((note) => (
+                      <p key={note} className="border-l border-mirage-cyan/60 pl-3 text-sm leading-6 text-zinc-300">
+                        {note}
+                      </p>
+                    ))}
+                  </div>
+                </div>
+              )}
+              <div className="p-5">
+                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-mirage-pink">
+                  {item.eyebrow}
+                </p>
+                <h3 className="mt-3 flex items-center justify-between gap-4 text-2xl font-semibold">
+                  {item.title}
+                  <ArrowRight size={17} className="shrink-0 text-mirage-muted transition group-hover:translate-x-1 group-hover:text-mirage-cyan" />
+                </h3>
+                <p className="mt-3 text-sm leading-7 text-mirage-muted">{item.text}</p>
+              </div>
+            </Link>
+          ))}
+        </div>
+
+        <div className="mt-8 grid gap-4 md:grid-cols-3">
+          {[
+            ["Demoable", "Investors can click through the garage workflow instead of reading only abstract claims."],
+            ["Automated", "Each repair step can create internal status, external updates, and cleaner operating records."],
+            ["Expandable", "The same surfaces can become customer portals, technician tools, buyer reports, and hardware companion apps."],
+          ].map(([title, text]) => (
+            <article key={title} className="bg-mirage-secondary p-5">
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-mirage-cyan">{title}</p>
+              <p className="mt-4 text-sm leading-7 text-mirage-muted">{text}</p>
+            </article>
+          ))}
         </div>
       </section>
 
