@@ -3,8 +3,11 @@ import {
   ArrowRight,
   Car,
   ClipboardCheck,
+  Cpu,
+  Database,
   Gauge,
   PiggyBank,
+  RadioTower,
   RotateCcw,
   ShieldCheck,
   Sparkles,
@@ -72,6 +75,24 @@ const grossProfit = cycle.targetSale - deployedCapital;
 const returnOnDeployedCapital = (grossProfit / deployedCapital) * 100;
 
 const processSteps = ["Invest", "Acquire", "Restore", "Market", "Sell", "Reinvest"];
+
+const softwareProofCards = [
+  {
+    title: "GarageOS Proof",
+    icon: Cpu,
+    text: "Every funded vehicle becomes a real workflow for intake, approvals, parts decisions, checklist completion, status changes, and customer-facing updates.",
+  },
+  {
+    title: "Telemetry Data",
+    icon: RadioTower,
+    text: "Road tests and diagnostic sessions create vehicle data that can shape future dashboards, automated alerts, and in-car monitoring concepts.",
+  },
+  {
+    title: "Software Dataset",
+    icon: Database,
+    text: "The work creates a practical dataset around repairs, prep timelines, costs, communication events, and sale readiness instead of guessing from theory.",
+  },
+];
 
 const selectionCards = [
   {
@@ -258,6 +279,43 @@ export function InvestorProspectusPage() {
       </section>
 
       <section className="py-16">
+        <div className="grid gap-8 lg:grid-cols-[0.9fr_1.1fr] lg:items-start">
+          <div>
+            <p className="text-sm font-semibold uppercase tracking-[0.28em] text-mirage-cyan">
+              Software Proof Loop
+            </p>
+            <h2 className="mt-3 text-4xl font-bold text-white md:text-5xl">
+              The first car proves more than resale economics.
+            </h2>
+            <p className="mt-5 text-lg leading-9 text-mirage-muted">
+              This raise is also a chance to prove that the Mirage software
+              stack works under real shop pressure. Each acquisition,
+              inspection, repair, telemetry session, update, and sale creates
+              operational data that can compound into the eventual growth of
+              GarageOS, telemetry hardware, customer apps, and future Mirage
+              software products.
+            </p>
+            <p className="mt-6 border-l border-mirage-pink pl-5 text-2xl font-semibold">
+              The car is the visible asset. The repeatable data loop is the
+              long-term advantage.
+            </p>
+          </div>
+          <div className="grid gap-4">
+            {softwareProofCards.map((item) => {
+              const Icon = item.icon;
+              return (
+                <article key={item.title} className="border border-mirage-border bg-mirage-panel p-6">
+                  <Icon className="text-mirage-cyan" size={24} />
+                  <h3 className="mt-7 text-xl font-semibold">{item.title}</h3>
+                  <p className="mt-3 text-sm leading-6 text-mirage-muted">{item.text}</p>
+                </article>
+              );
+            })}
+          </div>
+        </div>
+      </section>
+
+      <section className="py-16">
         <p className="text-sm font-semibold uppercase tracking-[0.28em] text-mirage-pink">
           How the Capital Works
         </p>
@@ -282,6 +340,8 @@ export function InvestorProspectusPage() {
           portion of that capital into carefully selected inventory, performs
           the work necessary to improve the vehicle, sells it, and returns the
           resulting capital to the operating pool for the next acquisition.
+          That same loop also validates GarageOS and collects the operating data
+          needed to build the broader Mirage software business.
         </p>
         <p className="mt-7 border-l border-mirage-cyan pl-5 text-2xl font-semibold">
           The objective is capital velocity - not simply profit on one car.
