@@ -68,6 +68,26 @@ fun Application.module(config: AppConfig, vehicles: VehicleRepository, auth: Aut
             call.respond(mapOf("status" to "ok"))
         }
 
+        post("/api/contact") {
+            val request = runCatching { call.receive<ContactInquiryRequest>() }.getOrNull()
+            if (request == null || !request.isValidContactInquiry()) {
+                call.respond(HttpStatusCode.BadRequest, mapOf("message" to "Check the contact form details."))
+                return@post
+            }
+            val rateKey = "contact:${call.request.origin.remoteHost}:${request.email.trim().lowercase()}"
+            if (!authLimiter.allow(rateKey)) {
+                call.respond(HttpStatusCode.TooManyRequests, mapOf("message" to "Too many attempts. Try again later."))
+                return@post
+            }
+            if (!emailService.sendContactInquiry(request)) {
+                logger.error("Unable to deliver contact inquiry; verify RESEND_API_KEY, EMAIL_FROM, CONTACT_EMAIL_TO, and domain verification")
+                call.respond(HttpStatusCode.ServiceUnavailable, mapOf("message" to "Unable to send the inquiry right now."))
+                return@post
+            }
+            authLimiter.reset(rateKey)
+            call.respond(HttpStatusCode.Accepted, ContactInquiryResponse("Inquiry sent."))
+        }
+
         route("/api/auth") {
             post("/login") {
                 val request = call.receive<LoginRequest>()
@@ -288,6 +308,15 @@ fun Application.module(config: AppConfig, vehicles: VehicleRepository, auth: Aut
 }
 
 private const val SESSION_COOKIE = "mirage_session"
+
+private fun ContactInquiryRequest.isValidContactInquiry(): Boolean {
+    val emailPattern = Regex("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$")
+    return name.trim().length in 2..120 &&
+        email.trim().length in 5..160 &&
+        email.trim().matches(emailPattern) &&
+        subject.trim().length in 2..160 &&
+        message.trim().length in 10..4000
+}
 
 private suspend fun io.ktor.server.application.ApplicationCall.requireUser(auth: AuthRepository): Boolean {
     if (auth.findUserByToken(request.cookies[SESSION_COOKIE]) != null) return true

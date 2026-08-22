@@ -23,6 +23,13 @@ export interface AuthUser {
 
 export interface CustomerProfile { user: AuthUser; phone: string; preferredContact: "email" | "phone" | "text"; marketingOptIn: boolean; }
 
+export interface ContactInquiry {
+  name: string;
+  email: string;
+  subject: string;
+  message: string;
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`, {
     credentials: "include",
@@ -66,6 +73,13 @@ export async function forgotPassword(email: string): Promise<void> {
 
 export async function resetPassword(token: string, password: string): Promise<void> {
   await request<{ message: string }>("/auth/reset-password", { method: "POST", body: JSON.stringify({ token, password }) });
+}
+
+export async function sendContactInquiry(input: ContactInquiry): Promise<void> {
+  await request<{ message: string }>("/contact", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
 }
 
 export async function getProfile(): Promise<CustomerProfile> { return request<CustomerProfile>("/auth/profile"); }

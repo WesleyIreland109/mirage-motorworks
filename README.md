@@ -35,6 +35,16 @@ Then create `frontend/.env.local`:
 VITE_API_BASE_URL=http://localhost:8080/api
 ```
 
+The public contact form posts to `POST /api/contact` and sends email through
+Resend. Configure the backend with:
+
+```dotenv
+RESEND_API_KEY=re_replace_with_the_real_key
+EMAIL_FROM=Mirage Motorworks <accounts@miragemw.com>
+CONTACT_EMAIL_TO=wesley@miragemw.com
+CORS_ALLOWED_ORIGINS=http://localhost:5173,https://miragemw.com
+```
+
 ### Create the first Garage OS account
 
 The first account is created only when the `users` table is empty. Put temporary
@@ -77,6 +87,7 @@ npm run preview
 - `GET /health`
 - `GET /api/vehicles`
 - `GET /api/vehicles/{slug}`
+- `POST /api/contact`
 - `POST /api/vehicles`
 - `PUT /api/vehicles/{id}`
 - `DELETE /api/vehicles/{id}`

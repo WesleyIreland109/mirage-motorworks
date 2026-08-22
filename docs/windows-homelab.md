@@ -81,8 +81,8 @@ Origin:  http://127.0.0.1:8089        (Windows only)
 Set these values in `.env`:
 
 ```dotenv
-PUBLIC_SITE_ORIGIN=https://www.example.com
 PUBLIC_SITE_URL=https://www.example.com
+CORS_ALLOWED_ORIGINS=https://www.example.com
 PUBLIC_REGISTRATION_ENABLED=true
 SESSION_COOKIE_SECURE=true
 SESSION_COOKIE_SAME_SITE=Strict
@@ -94,10 +94,13 @@ a domain-scoped sending API key, and add these values only to the Windows `.env`
 ```dotenv
 RESEND_API_KEY=re_replace_with_the_real_key
 EMAIL_FROM=Mirage Motorworks <accounts@example.com>
+CONTACT_EMAIL_TO=wesley@example.com
 ```
 
-Never commit the API key. Reset tokens are random, stored only as SHA-256 hashes,
-expire after 30 minutes, are single-use, and revoke existing sessions when used.
+Never commit the API key. `EMAIL_FROM` must be on a Resend-verified sending
+domain. `CONTACT_EMAIL_TO` is where public contact form inquiries are delivered.
+Reset tokens are random, stored only as SHA-256 hashes, expire after 30 minutes,
+are single-use, and revoke existing sessions when used.
 
 In the GitHub repository, create an Actions variable named
 `MIRAGE_API_BASE_URL` with value `https://api.example.com/api`, then redeploy
