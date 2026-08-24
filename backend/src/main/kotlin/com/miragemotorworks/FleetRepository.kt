@@ -8,8 +8,14 @@ import java.util.UUID
 
 class FleetRepository(private val database: Database) {
     fun list(userId: String): List<FleetVehicle> = database.withConnection { connection ->
-        connection.prepareStatement("SELECT * FROM owned_vehicles WHERE user_id = ?::uuid ORDER BY created_at").use { statement ->
-            statement.setString(1, userId)
+        connection.prepareStatement(
+            """SELECT v.*, CASE WHEN v.user_id = ?::uuid THEN 'owner' ELSE s.permission END AS access_role
+            FROM owned_vehicles v
+            LEFT JOIN owned_vehicle_shares s ON s.vehicle_id = v.id AND s.user_id = ?::uuid
+            WHERE v.user_id = ?::uuid OR s.user_id = ?::uuid
+            ORDER BY v.created_at"""
+        ).use { statement ->
+            statement.setString(1, userId); statement.setString(2, userId); statement.setString(3, userId); statement.setString(4, userId)
             statement.executeQuery().use { result -> buildList { while (result.next()) add(result.toFleetVehicle(connection)) } }
         }
     }
@@ -64,9 +70,11 @@ class FleetRepository(private val database: Database) {
             try {
                 val task = connection.prepareStatement(
                     """SELECT t.id, t.vehicle_id, t.title, v.mileage FROM maintenance_tasks t
-                    JOIN owned_vehicles v ON v.id = t.vehicle_id WHERE t.id = ?::uuid AND v.user_id = ?::uuid"""
+                    JOIN owned_vehicles v ON v.id = t.vehicle_id
+                    LEFT JOIN owned_vehicle_shares s ON s.vehicle_id = v.id AND s.user_id = ?::uuid
+                    WHERE t.id = ?::uuid AND (v.user_id = ?::uuid OR s.permission = 'editor')"""
                 ).use { statement ->
-                    statement.setString(1, taskId); statement.setString(2, userId)
+                    statement.setString(1, userId); statement.setString(2, taskId); statement.setString(3, userId)
                     statement.executeQuery().use { result ->
                         if (!result.next()) null else arrayOf(result.getString("vehicle_id"), result.getString("title"), result.getString("mileage"))
                     }
@@ -87,9 +95,57 @@ class FleetRepository(private val database: Database) {
                     statement.setString(4, task[1]); statement.setInt(5, update.completedMileage ?: task[2].toInt())
                     statement.setString(6, update.notes ?: ""); statement.executeUpdate()
                 }
-                connection.commit(); findOwned(connection, userId, task[0])
+                connection.commit(); findAccessible(connection, userId, task[0])
             } catch (exception: Exception) { connection.rollback(); throw exception } finally { connection.autoCommit = true }
         }
+    }
+
+    fun shareVehicle(userId: String, vehicleId: String, request: FleetShareRequest): FleetVehicle? {
+        val email = request.email.trim().lowercase()
+        require(email.matches(Regex("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$")))
+        require(request.permission in setOf("viewer", "editor"))
+        return database.withConnection { connection ->
+            connection.autoCommit = false
+            try {
+                val ownerExists = connection.prepareStatement(
+                    "SELECT 1 FROM owned_vehicles WHERE id = ?::uuid AND user_id = ?::uuid"
+                ).use { statement ->
+                    statement.setString(1, vehicleId); statement.setString(2, userId)
+                    statement.executeQuery().use { it.next() }
+                }
+                if (!ownerExists) return@withConnection null
+                val targetUserId = connection.prepareStatement(
+                    "SELECT id FROM users WHERE lower(email) = lower(?)"
+                ).use { statement ->
+                    statement.setString(1, email)
+                    statement.executeQuery().use { if (it.next()) it.getString("id") else null }
+                } ?: throw IllegalArgumentException("Shared user must have an account")
+                require(targetUserId != userId)
+                connection.prepareStatement(
+                    """INSERT INTO owned_vehicle_shares (id, vehicle_id, user_id, invited_by_user_id, permission)
+                    VALUES (?, ?::uuid, ?::uuid, ?::uuid, ?)
+                    ON CONFLICT (vehicle_id, user_id) DO UPDATE SET permission = EXCLUDED.permission, updated_at = NOW()"""
+                ).use { statement ->
+                    statement.setObject(1, UUID.randomUUID()); statement.setString(2, vehicleId); statement.setString(3, targetUserId)
+                    statement.setString(4, userId); statement.setString(5, request.permission); statement.executeUpdate()
+                }
+                connection.commit(); findOwned(connection, userId, vehicleId)
+            } catch (exception: Exception) { connection.rollback(); throw exception } finally { connection.autoCommit = true }
+        }
+    }
+
+    fun removeShare(userId: String, vehicleId: String, shareId: String): FleetVehicle? = database.withConnection { connection ->
+        connection.autoCommit = false
+        try {
+            val deleted = connection.prepareStatement(
+                """DELETE FROM owned_vehicle_shares s USING owned_vehicles v
+                WHERE s.id = ?::uuid AND s.vehicle_id = ?::uuid AND s.vehicle_id = v.id AND v.user_id = ?::uuid"""
+            ).use { statement ->
+                statement.setString(1, shareId); statement.setString(2, vehicleId); statement.setString(3, userId); statement.executeUpdate()
+            }
+            if (deleted == 0) return@withConnection null
+            connection.commit(); findOwned(connection, userId, vehicleId)
+        } catch (exception: Exception) { connection.rollback(); throw exception } finally { connection.autoCommit = true }
     }
 
     private fun insertTask(connection: Connection, vehicleId: UUID, title: String, category: String, priority: String, penalty: Int, source: String) {
@@ -103,8 +159,18 @@ class FleetRepository(private val database: Database) {
     }
 
     private fun findOwned(connection: Connection, userId: String, id: String): FleetVehicle? = connection.prepareStatement(
-        "SELECT * FROM owned_vehicles WHERE id = ?::uuid AND user_id = ?::uuid"
+        "SELECT *, 'owner' AS access_role FROM owned_vehicles WHERE id = ?::uuid AND user_id = ?::uuid"
     ).use { statement -> statement.setString(1, id); statement.setString(2, userId); statement.executeQuery().use { if (it.next()) it.toFleetVehicle(connection) else null } }
+
+    private fun findAccessible(connection: Connection, userId: String, id: String): FleetVehicle? = connection.prepareStatement(
+        """SELECT v.*, CASE WHEN v.user_id = ?::uuid THEN 'owner' ELSE s.permission END AS access_role
+        FROM owned_vehicles v
+        LEFT JOIN owned_vehicle_shares s ON s.vehicle_id = v.id AND s.user_id = ?::uuid
+        WHERE v.id = ?::uuid AND (v.user_id = ?::uuid OR s.user_id = ?::uuid)"""
+    ).use { statement ->
+        statement.setString(1, userId); statement.setString(2, userId); statement.setString(3, id); statement.setString(4, userId); statement.setString(5, userId)
+        statement.executeQuery().use { if (it.next()) it.toFleetVehicle(connection) else null }
+    }
 
     private fun ResultSet.toFleetVehicle(connection: Connection): FleetVehicle {
         val vehicleId = getString("id")
@@ -113,7 +179,19 @@ class FleetRepository(private val database: Database) {
                 while (result.next()) add(MaintenanceTask(result.getString("id"), result.getString("title"), result.getString("category"), result.getString("priority"), result.getInt("penalty"), result.getString("status"), result.getString("source"), result.getString("notes")))
             } }
         }
+        val shares = connection.prepareStatement(
+            """SELECT s.id, s.user_id, u.email, u.display_name, s.permission, s.created_at
+            FROM owned_vehicle_shares s
+            JOIN users u ON u.id = s.user_id
+            WHERE s.vehicle_id = ?::uuid
+            ORDER BY s.created_at"""
+        ).use { statement ->
+            statement.setString(1, vehicleId)
+            statement.executeQuery().use { result -> buildList {
+                while (result.next()) add(FleetVehicleShare(result.getString("id"), result.getString("user_id"), result.getString("email"), result.getString("display_name"), result.getString("permission"), result.getString("created_at")))
+            } }
+        }
         val readiness = (100 - tasks.filter { it.status in setOf("accepted", "in_progress") }.sumOf { it.penalty }).coerceIn(0, 100)
-        return FleetVehicle(vehicleId, getInt("year"), getString("make"), getString("model"), getString("trim"), getInt("mileage"), getString("vin"), getString("primary_use"), getObject("annual_mileage") as? Int, getString("notes"), getString("purpose"), getString("owner_name"), getObject("acquisition_price_cents") as? Long, getObject("target_sale_price_cents") as? Long, readiness, tasks)
+        return FleetVehicle(vehicleId, getInt("year"), getString("make"), getString("model"), getString("trim"), getInt("mileage"), getString("vin"), getString("primary_use"), getObject("annual_mileage") as? Int, getString("notes"), getString("purpose"), getString("owner_name"), getObject("acquisition_price_cents") as? Long, getObject("target_sale_price_cents") as? Long, readiness, tasks, getString("access_role") ?: "owner", shares)
     }
 }

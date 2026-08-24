@@ -250,6 +250,21 @@ fun Application.module(config: AppConfig, vehicles: VehicleRepository, auth: Aut
                 val vehicle = runCatching { fleet.updateTask(user.id, taskId, call.receive<TaskUpdate>()) }.getOrNull()
                 if (vehicle == null) call.respond(HttpStatusCode.NotFound, mapOf("message" to "Task not found")) else call.respond(vehicle)
             }
+            post("/{id}/shares") {
+                val user = call.authenticatedUser(auth) ?: return@post
+                val vehicleId = call.parameters["id"].orEmpty()
+                runCatching { fleet.shareVehicle(user.id, vehicleId, call.receive<FleetShareRequest>()) }
+                    .onSuccess {
+                        if (it == null) call.respond(HttpStatusCode.NotFound, mapOf("message" to "Vehicle not found"))
+                        else call.respond(HttpStatusCode.Created, it)
+                    }
+                    .onFailure { call.respond(HttpStatusCode.BadRequest, mapOf("message" to "Share with an existing GarageOS user email.")) }
+            }
+            delete("/{vehicleId}/shares/{shareId}") {
+                val user = call.authenticatedUser(auth) ?: return@delete
+                val vehicle = fleet.removeShare(user.id, call.parameters["vehicleId"].orEmpty(), call.parameters["shareId"].orEmpty())
+                if (vehicle == null) call.respond(HttpStatusCode.NotFound, mapOf("message" to "Share not found")) else call.respond(vehicle)
+            }
         }
 
         route("/api/telemetry-sessions") {

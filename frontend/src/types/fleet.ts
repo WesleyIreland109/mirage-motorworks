@@ -13,6 +13,14 @@ export interface MaintenanceTask {
   source: string;
   notes: string;
 }
+export interface FleetVehicleShare {
+  id: string;
+  userId: string;
+  email: string;
+  displayName: string;
+  permission: "viewer" | "editor";
+  createdAt: string;
+}
 export interface FleetVehicle {
   id: string;
   year: number;
@@ -30,6 +38,8 @@ export interface FleetVehicle {
   targetSalePriceCents?: number;
   readiness: number;
   tasks: MaintenanceTask[];
+  accessRole: "owner" | "viewer" | "editor";
+  shares: FleetVehicleShare[];
 }
 export interface FleetVehicleInput {
   year: number;

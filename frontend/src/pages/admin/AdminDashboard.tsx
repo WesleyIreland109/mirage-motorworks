@@ -8,13 +8,18 @@ import {
   ClipboardCheck,
   Gauge,
   Plus,
+  Share2,
+  Users,
   Wrench,
+  X,
 } from "lucide-react";
 import { useState } from "react";
 
 import {
   createFleetVehicle,
   listFleet,
+  removeFleetVehicleShare,
+  shareFleetVehicle,
   updateMaintenanceTask,
 } from "@/api/client";
 import { Button } from "@/components/ui/button";
@@ -23,6 +28,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import type {
   Condition,
+  FleetVehicle,
   FleetVehicleInput,
   MaintenanceTask,
   TaskStatus,
@@ -299,6 +305,101 @@ function TaskRow({
   );
 }
 
+function ShareVehiclePanel({ vehicle }: { vehicle: FleetVehicle }) {
+  const client = useQueryClient();
+  const [email, setEmail] = useState("");
+  const [error, setError] = useState("");
+  const share = useMutation({
+    mutationFn: () => shareFleetVehicle(vehicle.id, email, "editor"),
+    onSuccess: () => {
+      setEmail("");
+      setError("");
+      client.invalidateQueries({ queryKey: ["fleet"] });
+    },
+    onError: () =>
+      setError("That person needs a GarageOS account before you can share this vehicle."),
+  });
+  const remove = useMutation({
+    mutationFn: (shareId: string) => removeFleetVehicleShare(vehicle.id, shareId),
+    onSuccess: () => client.invalidateQueries({ queryKey: ["fleet"] }),
+  });
+  const isOwner = vehicle.accessRole === "owner";
+
+  return (
+    <div className="mb-5 border border-white/[.06] bg-white/[.025] p-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <div className="flex items-center gap-2 text-sm font-semibold uppercase tracking-[.16em]">
+            <Users className="text-mirage-cyan" size={17} />
+            Shared garage access
+          </div>
+          <p className="mt-2 text-sm leading-6 text-mirage-muted">
+            {isOwner
+              ? "Invite another owner so they can see the questionnaire, workflow, notes, and checklist updates on this vehicle."
+              : "This vehicle is shared with you. Updates happen on the same live maintenance record."}
+          </p>
+        </div>
+        <div className="flex items-center gap-2 border border-mirage-cyan/25 bg-mirage-cyan/10 px-3 py-2 text-xs font-semibold uppercase tracking-[.14em] text-mirage-cyan">
+          <Share2 size={14} />
+          {vehicle.accessRole}
+        </div>
+      </div>
+
+      {isOwner && (
+        <div className="mt-4 grid gap-3 sm:grid-cols-[1fr_auto]">
+          <Input
+            type="email"
+            placeholder="Co-owner email"
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+          />
+          <Button
+            disabled={share.isPending || !email.trim()}
+            onClick={() => share.mutate()}
+          >
+            <Share2 size={16} />
+            Share
+          </Button>
+        </div>
+      )}
+      {error && <p className="mt-3 text-sm text-mirage-orange">{error}</p>}
+
+      <div className="mt-4 grid gap-2">
+        {vehicle.shares.length ? (
+          vehicle.shares.map((item) => (
+            <div
+              key={item.id}
+              className="flex flex-wrap items-center justify-between gap-3 border border-white/[.06] bg-black/10 p-3"
+            >
+              <div>
+                <p className="text-sm font-medium">{item.displayName}</p>
+                <p className="text-xs text-mirage-muted">
+                  {item.email} · {item.permission}
+                </p>
+              </div>
+              {isOwner && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  disabled={remove.isPending}
+                  onClick={() => remove.mutate(item.id)}
+                >
+                  <X size={15} />
+                  Remove
+                </Button>
+              )}
+            </div>
+          ))
+        ) : (
+          <p className="text-sm text-mirage-muted">
+            This vehicle has not been shared yet.
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export function AdminDashboard() {
   const [adding, setAdding] = useState(false);
   const [expanded, setExpanded] = useState<string | null>(null);
@@ -428,6 +529,7 @@ export function AdminDashboard() {
                         </p>
                       </div>
                     </div>
+                    <ShareVehiclePanel vehicle={vehicle} />
                     <div className="flex items-center gap-2 border-b border-white/[.08] pb-3 text-sm font-semibold uppercase tracking-[.16em]">
                       <Wrench size={17} /> Maintenance checklist
                     </div>

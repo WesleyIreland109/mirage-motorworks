@@ -37,6 +37,16 @@ data class MaintenanceTask(
 )
 
 @Serializable
+data class FleetVehicleShare(
+    val id: String,
+    val userId: String,
+    val email: String,
+    val displayName: String,
+    val permission: String,
+    val createdAt: String
+)
+
+@Serializable
 data class FleetVehicle(
     val id: String,
     val year: Int,
@@ -53,8 +63,13 @@ data class FleetVehicle(
     val acquisitionPriceCents: Long?,
     val targetSalePriceCents: Long?,
     val readiness: Int,
-    val tasks: List<MaintenanceTask>
+    val tasks: List<MaintenanceTask>,
+    val accessRole: String = "owner",
+    val shares: List<FleetVehicleShare> = emptyList()
 )
 
 @Serializable
 data class TaskUpdate(val status: String, val notes: String? = null, val completedMileage: Int? = null)
+
+@Serializable
+data class FleetShareRequest(val email: String, val permission: String = "editor")

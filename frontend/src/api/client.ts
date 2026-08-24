@@ -129,6 +129,24 @@ export async function updateMaintenanceTask(
     body: JSON.stringify({ status, completedMileage }),
   });
 }
+export async function shareFleetVehicle(
+  vehicleId: string,
+  email: string,
+  permission: "viewer" | "editor" = "editor",
+): Promise<FleetVehicle> {
+  return request<FleetVehicle>(`/fleet/${vehicleId}/shares`, {
+    method: "POST",
+    body: JSON.stringify({ email, permission }),
+  });
+}
+export async function removeFleetVehicleShare(
+  vehicleId: string,
+  shareId: string,
+): Promise<FleetVehicle> {
+  return request<FleetVehicle>(`/fleet/${vehicleId}/shares/${shareId}`, {
+    method: "DELETE",
+  });
+}
 export async function listTelemetrySessions(
   vehicleId?: string,
 ): Promise<TelemetrySession[]> {
