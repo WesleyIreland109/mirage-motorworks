@@ -11,6 +11,7 @@ import {
   RotateCcw,
   ShieldCheck,
   Sparkles,
+  TrendingUp,
   Wrench,
 } from "lucide-react";
 import { Link } from "react-router-dom";
@@ -74,6 +75,9 @@ const cycle = {
 const deployedCapital = cycle.acquisition + cycle.repairs + cycle.fees;
 const grossProfit = cycle.targetSale - deployedCapital;
 const returnOnDeployedCapital = (grossProfit / deployedCapital) * 100;
+const investorSharePercent = 50;
+const investorExampleReturn = grossProfit * (investorSharePercent / 100);
+const investorExampleReturnPercent = (investorExampleReturn / capitalTarget) * 100;
 
 const processSteps = ["Invest", "Acquire", "Restore", "Market", "Sell", "Reinvest"];
 
@@ -528,6 +532,82 @@ export function InvestorProspectusPage() {
             {formatCurrency(deployedCapital)} deployed capital.
           </p>
         </aside>
+      </section>
+
+      <section className="border-b border-mirage-border py-16">
+        <div className="grid gap-8 lg:grid-cols-[0.95fr_1.05fr] lg:items-start">
+          <div>
+            <p className="text-sm font-semibold uppercase tracking-[0.28em] text-mirage-pink">
+              Investor Return Example
+            </p>
+            <h2 className="mt-3 text-4xl font-bold text-white md:text-5xl">
+              What that could mean for a $10,000 investor.
+            </h2>
+            <p className="mt-5 text-sm leading-7 text-mirage-muted">
+              Using the same sample vehicle cycle above, if a written agreement
+              allocated {investorSharePercent}% of gross profit to the investor,
+              the investor&apos;s example payout would be{" "}
+              {formatCurrency(investorExampleReturn)}. Against a{" "}
+              {formatCurrency(capitalTarget)} capital contribution, that equals
+              an illustrative {investorExampleReturnPercent.toFixed(1)}% return
+              for that cycle.
+            </p>
+            <p className="mt-5 border-l border-mirage-orange pl-5 text-xs leading-6 text-mirage-muted">
+              This is example math only. It is not a guaranteed return, not a
+              final investment term, and not a promise that every vehicle cycle
+              will produce the same result. Actual investor economics would need
+              to be documented in a written agreement.
+            </p>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2">
+            <article className="border border-white/[0.06] bg-mirage-panel p-5">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-mirage-muted">
+                Example Capital
+              </p>
+              <p className="mt-4 font-display text-4xl font-bold">
+                {formatCurrency(capitalTarget)}
+              </p>
+            </article>
+            <article className="border border-white/[0.06] bg-mirage-panel p-5">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-mirage-muted">
+                Example Gross Profit
+              </p>
+              <p className="mt-4 font-display text-4xl font-bold">
+                {formatCurrency(grossProfit)}
+              </p>
+            </article>
+            <article className="border border-white/[0.06] bg-mirage-panel p-5">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-mirage-muted">
+                Example Investor Share
+              </p>
+              <p className="mt-4 font-display text-4xl font-bold">
+                {investorSharePercent}%
+              </p>
+            </article>
+            <article className="border border-mirage-cyan/25 bg-mirage-secondary p-5">
+              <div className="flex items-center gap-3 text-mirage-cyan">
+                <TrendingUp size={22} />
+                <p className="text-xs font-semibold uppercase tracking-[0.18em]">
+                  Example Return
+                </p>
+              </div>
+              <p className="mt-4 font-display text-5xl font-bold">
+                {investorExampleReturnPercent.toFixed(1)}%
+              </p>
+              <GradientProgress
+                value={investorExampleReturnPercent}
+                heightClassName="h-2"
+                className="mt-5"
+                ariaLabel="Illustrative investor return percentage"
+              />
+              <p className="mt-4 text-sm leading-6 text-mirage-muted">
+                {formatCurrency(investorExampleReturn)} example payout on{" "}
+                {formatCurrency(capitalTarget)}.
+              </p>
+            </article>
+          </div>
+        </div>
       </section>
 
       <section className="py-16">

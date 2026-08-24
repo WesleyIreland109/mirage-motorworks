@@ -8,6 +8,8 @@ import {
   Gauge,
   PackageCheck,
   RefreshCw,
+  Share2,
+  Users,
   Wrench,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
@@ -38,6 +40,11 @@ const modules = [
     icon: PackageCheck,
     text: "Move from neglected car to Mirage-ready inventory with proof: notes, reports, costs, photos, and final handoff steps.",
   },
+  {
+    label: "Shared Garage",
+    icon: Users,
+    text: "Invite another owner to a personal vehicle so questionnaire answers, workflows, service notes, and completed jobs stay synchronized.",
+  },
 ];
 
 const serviceSteps = [
@@ -65,6 +72,29 @@ const serviceSteps = [
     label: "Road test queued",
     owner: "QA",
     update: "After final torque check, the car moves to road test, telemetry capture, and detail.",
+  },
+];
+
+const sharedGarageTasks = [
+  {
+    label: "Ownership questionnaire",
+    status: "Complete",
+    note: "Atlas use case, maintenance priorities, trip plans, and concern list captured.",
+  },
+  {
+    label: "Brake inspection",
+    status: "In progress",
+    note: "Pad measurements and photos added. Co-owner can see the active inspection note.",
+  },
+  {
+    label: "Oil service",
+    status: "Queued",
+    note: "OEM filter and correct-spec oil selected from the workflow recommendation.",
+  },
+  {
+    label: "Road test",
+    status: "Waiting",
+    note: "Completion will automatically update the shared vehicle timeline.",
   },
 ];
 
@@ -130,7 +160,7 @@ export function GarageOSPage() {
         </div>
       </section>
 
-      <section className="grid gap-4 py-16 md:grid-cols-2 lg:grid-cols-4">
+      <section className="grid gap-4 py-16 md:grid-cols-2 lg:grid-cols-5">
         {modules.map((item) => {
           const Icon = item.icon;
           return (
@@ -141,6 +171,85 @@ export function GarageOSPage() {
             </article>
           );
         })}
+      </section>
+
+      <section className="grid gap-8 border-y border-mirage-border py-16 lg:grid-cols-[0.95fr_1.05fr] lg:items-start">
+        <div>
+          <p className="text-sm font-semibold uppercase tracking-[0.28em] text-mirage-pink">
+            Shared Personal Garage
+          </p>
+          <h2 className="mt-3 text-4xl font-bold text-white md:text-5xl">
+            One owned car, one live maintenance record, multiple people in the loop.
+          </h2>
+          <p className="mt-5 text-sm leading-7 text-mirage-muted">
+            GarageOS is not only for Mirage inventory or customer repair jobs.
+            A personal garage vehicle can be shared with another owner so both
+            people see the questionnaire, generated workflow, active jobs,
+            service notes, photos, and completed work as the car moves forward.
+          </p>
+          <p className="mt-5 border-l border-mirage-cyan pl-5 text-lg leading-8 text-zinc-300">
+            If the Atlas is in the garage, the person working on it can complete
+            the checklist while the other owner sees progress automatically
+            instead of waiting for scattered texts or a verbal recap.
+          </p>
+        </div>
+
+        <div className="border border-white/[0.06] bg-mirage-panel p-5">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-mirage-muted">
+                My Garage
+              </p>
+              <h3 className="mt-2 text-3xl font-semibold">Volkswagen Atlas</h3>
+              <p className="mt-2 text-sm text-mirage-muted">
+                Family maintenance workflow
+              </p>
+            </div>
+            <div className="flex items-center gap-2 border border-mirage-cyan/25 bg-mirage-cyan/10 px-3 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-mirage-cyan">
+              <Share2 size={15} />
+              Shared
+            </div>
+          </div>
+
+          <div className="mt-6 grid gap-3 sm:grid-cols-3">
+            {[
+              ["Questionnaire", "Complete"],
+              ["Shared With", "Co-owner"],
+              ["Active Jobs", "4"],
+            ].map(([label, value]) => (
+              <div key={label} className="bg-mirage-bg/70 p-4">
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-mirage-muted">
+                  {label}
+                </p>
+                <p className="mt-3 text-lg font-semibold text-white">{value}</p>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-6 space-y-3">
+            {sharedGarageTasks.map((task) => (
+              <article key={task.label} className="border border-white/[0.06] bg-mirage-bg/50 p-4">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <h4 className="font-semibold text-white">{task.label}</h4>
+                  <span className="text-xs font-semibold uppercase tracking-[0.16em] text-mirage-cyan">
+                    {task.status}
+                  </span>
+                </div>
+                <p className="mt-2 text-sm leading-6 text-mirage-muted">{task.note}</p>
+              </article>
+            ))}
+          </div>
+
+          <div className="mt-6 border border-mirage-cyan/20 bg-[#071016]/85 p-4">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-mirage-cyan">
+              Shared update
+            </p>
+            <p className="mt-3 text-sm leading-6 text-zinc-300">
+              Atlas update: brake inspection is in progress. Measurements,
+              notes, and photos are attached in GarageOS.
+            </p>
+          </div>
+        </div>
       </section>
 
       <section id="instant-updates" className="grid scroll-mt-28 gap-8 border-y border-mirage-border py-16 lg:grid-cols-[1.05fr_0.95fr]">
