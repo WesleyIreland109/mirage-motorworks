@@ -22,6 +22,7 @@ import {
   shareFleetVehicle,
   updateMaintenanceTask,
 } from "@/api/client";
+import { FleetVehicleControls } from "@/components/FleetVehicleControls";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -532,6 +533,9 @@ export function AdminDashboard() {
                       </div>
                     </div>
                     <ShareVehiclePanel vehicle={vehicle} />
+                    <div className="mb-5">
+                      <FleetVehicleControls vehicle={vehicle} />
+                    </div>
                     <div className="flex items-center gap-2 border-b border-white/[.08] pb-3 text-sm font-semibold uppercase tracking-[.16em]">
                       <Wrench size={17} /> Maintenance checklist
                     </div>

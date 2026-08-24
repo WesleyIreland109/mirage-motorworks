@@ -3,6 +3,7 @@ import type {
   DriveReport,
   FleetVehicle,
   FleetVehicleInput,
+  FleetVehicleUpdate,
   SessionImport,
   TaskStatus,
   TelemetrySession,
@@ -124,6 +125,18 @@ export async function createFleetVehicle(
     method: "POST",
     body: JSON.stringify(input),
   });
+}
+export async function updateFleetVehicle(
+  id: string,
+  input: FleetVehicleUpdate,
+): Promise<FleetVehicle> {
+  return request<FleetVehicle>(`/fleet/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(input),
+  });
+}
+export async function deleteFleetVehicle(id: string): Promise<void> {
+  await request<void>(`/fleet/${id}`, { method: "DELETE" });
 }
 export async function updateMaintenanceTask(
   id: string,

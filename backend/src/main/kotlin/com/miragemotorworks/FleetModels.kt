@@ -25,6 +25,23 @@ data class FleetVehicleInput(
 )
 
 @Serializable
+data class FleetVehicleUpdate(
+    val year: Int,
+    val make: String,
+    val model: String,
+    val trim: String = "",
+    val mileage: Int,
+    val vin: String? = null,
+    val primaryUse: String,
+    val annualMileage: Int? = null,
+    val notes: String = "",
+    val purpose: String = "personal",
+    val ownerName: String? = null,
+    val acquisitionPriceCents: Long? = null,
+    val targetSalePriceCents: Long? = null
+)
+
+@Serializable
 data class MaintenanceTask(
     val id: String,
     val title: String,

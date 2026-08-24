@@ -63,6 +63,46 @@ class FleetRepository(private val database: Database) {
         }
     }
 
+    fun updateVehicle(userId: String, vehicleId: String, update: FleetVehicleUpdate): FleetVehicle? {
+        require(update.year in 1950..2050 && update.make.isNotBlank() && update.model.isNotBlank() && update.mileage >= 0)
+        require(update.purpose in setOf("personal", "working_on", "flip"))
+        return database.withConnection { connection ->
+            connection.prepareStatement(
+                """UPDATE owned_vehicles SET
+                year = ?, make = ?, model = ?, trim = ?, mileage = ?, vin = ?, primary_use = ?,
+                annual_mileage = ?, notes = ?, purpose = ?, owner_name = ?,
+                acquisition_price_cents = ?, target_sale_price_cents = ?, updated_at = NOW()
+                WHERE id = ?::uuid AND user_id = ?::uuid"""
+            ).use { statement ->
+                statement.setInt(1, update.year)
+                statement.setString(2, update.make.trim())
+                statement.setString(3, update.model.trim())
+                statement.setString(4, update.trim.trim())
+                statement.setInt(5, update.mileage)
+                statement.setString(6, update.vin?.trim()?.ifEmpty { null })
+                statement.setString(7, update.primaryUse.trim())
+                if (update.annualMileage == null) statement.setNull(8, java.sql.Types.INTEGER) else statement.setInt(8, update.annualMileage)
+                statement.setString(9, update.notes.trim())
+                statement.setString(10, update.purpose)
+                statement.setString(11, update.ownerName?.trim()?.ifEmpty { null })
+                if (update.acquisitionPriceCents == null) statement.setNull(12, java.sql.Types.BIGINT) else statement.setLong(12, update.acquisitionPriceCents)
+                if (update.targetSalePriceCents == null) statement.setNull(13, java.sql.Types.BIGINT) else statement.setLong(13, update.targetSalePriceCents)
+                statement.setString(14, vehicleId)
+                statement.setString(15, userId)
+                if (statement.executeUpdate() == 0) return@withConnection null
+            }
+            findOwned(connection, userId, vehicleId)
+        }
+    }
+
+    fun deleteVehicle(userId: String, vehicleId: String): Boolean = database.withConnection { connection ->
+        connection.prepareStatement("DELETE FROM owned_vehicles WHERE id = ?::uuid AND user_id = ?::uuid").use { statement ->
+            statement.setString(1, vehicleId)
+            statement.setString(2, userId)
+            statement.executeUpdate() > 0
+        }
+    }
+
     fun updateTask(userId: String, taskId: String, update: TaskUpdate): FleetVehicle? {
         require(update.status in setOf("suggested", "accepted", "in_progress", "completed", "deferred"))
         return database.withConnection { connection ->

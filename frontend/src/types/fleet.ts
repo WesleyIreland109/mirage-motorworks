@@ -58,6 +58,7 @@ export interface FleetVehicleInput {
   answers: Array<{ category: string; label: string; condition: Condition }>;
   customItems: string[];
 }
+export type FleetVehicleUpdate = Omit<FleetVehicleInput, "answers" | "customItems">;
 
 export interface MetricSummary {
   key: string;
