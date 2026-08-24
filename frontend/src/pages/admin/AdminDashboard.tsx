@@ -309,6 +309,8 @@ function ShareVehiclePanel({ vehicle }: { vehicle: FleetVehicle }) {
   const client = useQueryClient();
   const [email, setEmail] = useState("");
   const [error, setError] = useState("");
+  const accessRole = vehicle.accessRole ?? "owner";
+  const shares = vehicle.shares ?? [];
   const share = useMutation({
     mutationFn: () => shareFleetVehicle(vehicle.id, email, "editor"),
     onSuccess: () => {
@@ -323,7 +325,7 @@ function ShareVehiclePanel({ vehicle }: { vehicle: FleetVehicle }) {
     mutationFn: (shareId: string) => removeFleetVehicleShare(vehicle.id, shareId),
     onSuccess: () => client.invalidateQueries({ queryKey: ["fleet"] }),
   });
-  const isOwner = vehicle.accessRole === "owner";
+  const isOwner = accessRole === "owner";
 
   return (
     <div className="mb-5 border border-white/[.06] bg-white/[.025] p-4">
@@ -341,7 +343,7 @@ function ShareVehiclePanel({ vehicle }: { vehicle: FleetVehicle }) {
         </div>
         <div className="flex items-center gap-2 border border-mirage-cyan/25 bg-mirage-cyan/10 px-3 py-2 text-xs font-semibold uppercase tracking-[.14em] text-mirage-cyan">
           <Share2 size={14} />
-          {vehicle.accessRole}
+          {accessRole}
         </div>
       </div>
 
@@ -365,8 +367,8 @@ function ShareVehiclePanel({ vehicle }: { vehicle: FleetVehicle }) {
       {error && <p className="mt-3 text-sm text-mirage-orange">{error}</p>}
 
       <div className="mt-4 grid gap-2">
-        {vehicle.shares.length ? (
-          vehicle.shares.map((item) => (
+        {shares.length ? (
+          shares.map((item) => (
             <div
               key={item.id}
               className="flex flex-wrap items-center justify-between gap-3 border border-white/[.06] bg-black/10 p-3"

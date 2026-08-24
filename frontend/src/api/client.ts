@@ -109,7 +109,13 @@ export async function promoteUser(userId: string): Promise<AuthUser> {
 }
 
 export async function listFleet(): Promise<FleetVehicle[]> {
-  return request<FleetVehicle[]>("/fleet");
+  const fleet = await request<FleetVehicle[]>("/fleet");
+  return fleet.map((vehicle) => ({
+    ...vehicle,
+    tasks: vehicle.tasks ?? [],
+    accessRole: vehicle.accessRole ?? "owner",
+    shares: vehicle.shares ?? [],
+  }));
 }
 export async function createFleetVehicle(
   input: FleetVehicleInput,
