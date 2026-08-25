@@ -17,12 +17,14 @@ import { useState } from "react";
 
 import {
   createFleetVehicle,
+  listTelemetrySessions,
   listFleet,
   removeFleetVehicleShare,
   shareFleetVehicle,
   updateMaintenanceTask,
 } from "@/api/client";
 import { FleetVehicleControls } from "@/components/FleetVehicleControls";
+import { VehicleDriveList } from "@/components/VehicleDriveList";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -410,6 +412,10 @@ export function AdminDashboard() {
     queryKey: ["fleet"],
     queryFn: listFleet,
   });
+  const { data: sessions = [] } = useQuery({
+    queryKey: ["telemetry-sessions"],
+    queryFn: () => listTelemetrySessions(),
+  });
   return (
     <section className="px-5 py-8 lg:px-8">
       <div className="flex flex-col justify-between gap-4 border-b border-mirage-border pb-6 md:flex-row md:items-end">
@@ -535,6 +541,9 @@ export function AdminDashboard() {
                     <ShareVehiclePanel vehicle={vehicle} />
                     <div className="mb-5">
                       <FleetVehicleControls vehicle={vehicle} />
+                    </div>
+                    <div className="mb-5">
+                      <VehicleDriveList vehicle={vehicle} sessions={sessions} />
                     </div>
                     <div className="flex items-center gap-2 border-b border-white/[.08] pb-3 text-sm font-semibold uppercase tracking-[.16em]">
                       <Wrench size={17} /> Maintenance checklist

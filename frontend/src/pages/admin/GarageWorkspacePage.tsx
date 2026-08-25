@@ -2,8 +2,9 @@ import { BadgeDollarSign, Plus } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 
-import { createFleetVehicle, listFleet } from "@/api/client";
+import { createFleetVehicle, listFleet, listTelemetrySessions } from "@/api/client";
 import { FleetVehicleControls } from "@/components/FleetVehicleControls";
+import { VehicleDriveList } from "@/components/VehicleDriveList";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -36,6 +37,7 @@ function VehicleForm({ purpose, done }: { purpose: VehiclePurpose; done: () => v
 export function GarageWorkspacePage({ purpose }: { purpose: "working_on" | "flip" }) {
   const [adding, setAdding] = useState(false);
   const { data: fleet = [] } = useQuery({ queryKey: ["fleet"], queryFn: listFleet });
+  const { data: sessions = [] } = useQuery({ queryKey: ["telemetry-sessions"], queryFn: () => listTelemetrySessions() });
   const vehicles = fleet.filter((vehicle) => vehicle.purpose === purpose);
   const title = purpose === "flip" ? "Flips" : "Working On";
   const subtitle = purpose === "flip" ? "Temporary inventory from acquisition through repair and sale." : "Friends’ and customer vehicles, diagnostic sessions, and shareable drive summaries.";
@@ -43,6 +45,6 @@ export function GarageWorkspacePage({ purpose }: { purpose: "working_on" | "flip
     <div className="flex flex-col justify-between gap-4 border-b border-mirage-border pb-6 md:flex-row md:items-end"><div><p className="text-sm font-semibold uppercase tracking-[.24em] text-mirage-cyan">Garage OS</p><h1 className="mt-2 text-4xl font-semibold">{title}</h1><p className="mt-2 text-sm text-mirage-muted">{subtitle}</p></div><Button onClick={() => setAdding(!adding)}><Plus size={17}/> Add vehicle</Button></div>
     {adding && <VehicleForm purpose={purpose} done={() => setAdding(false)}/>}
     {vehicles.length === 0 && !adding && <Card className="mt-8 p-8 text-center"><p className="text-mirage-muted">No vehicles here yet. Add one manually or route a recorded drive from Telemetry Inbox.</p></Card>}
-    <div className="mt-8 grid gap-5 lg:grid-cols-2">{vehicles.map((vehicle) => <Card key={vehicle.id} className="p-5"><div className="flex justify-between gap-4"><div><p className="text-xs uppercase tracking-[.18em] text-mirage-muted">{vehicle.ownerName || (purpose === "flip" ? "Mirage inventory" : "Guest vehicle")}</p><h2 className="mt-2 text-xl font-semibold">{vehicle.year} {vehicle.make} {vehicle.model}</h2><p className="text-sm text-mirage-muted">{vehicle.trim ? `${vehicle.trim} · ` : ""}{vehicle.mileage.toLocaleString()} miles</p></div>{purpose === "flip" && <BadgeDollarSign className="text-mirage-cyan"/>}</div>{purpose === "flip" && <div className="mt-5 grid grid-cols-2 gap-3 text-sm"><div className="bg-white/[.03] p-3"><p className="text-mirage-muted">Acquired</p><p className="mt-1 text-lg">${((vehicle.acquisitionPriceCents ?? 0)/100).toLocaleString()}</p></div><div className="bg-white/[.03] p-3"><p className="text-mirage-muted">Target</p><p className="mt-1 text-lg">${((vehicle.targetSalePriceCents ?? 0)/100).toLocaleString()}</p></div></div>}<div className="mt-5"><FleetVehicleControls vehicle={vehicle} /></div></Card>)}</div>
+    <div className="mt-8 grid gap-5 lg:grid-cols-2">{vehicles.map((vehicle) => <Card key={vehicle.id} className="p-5"><div className="flex justify-between gap-4"><div><p className="text-xs uppercase tracking-[.18em] text-mirage-muted">{vehicle.ownerName || (purpose === "flip" ? "Mirage inventory" : "Guest vehicle")}</p><h2 className="mt-2 text-xl font-semibold">{vehicle.year} {vehicle.make} {vehicle.model}</h2><p className="text-sm text-mirage-muted">{vehicle.trim ? `${vehicle.trim} · ` : ""}{vehicle.mileage.toLocaleString()} miles</p></div>{purpose === "flip" && <BadgeDollarSign className="text-mirage-cyan"/>}</div>{purpose === "flip" && <div className="mt-5 grid grid-cols-2 gap-3 text-sm"><div className="bg-white/[.03] p-3"><p className="text-mirage-muted">Acquired</p><p className="mt-1 text-lg">${((vehicle.acquisitionPriceCents ?? 0)/100).toLocaleString()}</p></div><div className="bg-white/[.03] p-3"><p className="text-mirage-muted">Target</p><p className="mt-1 text-lg">${((vehicle.targetSalePriceCents ?? 0)/100).toLocaleString()}</p></div></div>}<div className="mt-5"><FleetVehicleControls vehicle={vehicle} /></div><div className="mt-5"><VehicleDriveList vehicle={vehicle} sessions={sessions} /></div></Card>)}</div>
   </section>;
 }
