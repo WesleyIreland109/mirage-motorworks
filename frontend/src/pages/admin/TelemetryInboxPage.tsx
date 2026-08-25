@@ -1,6 +1,7 @@
 import { Activity, Bot, Car, Check, Copy, FileUp, Send, Sparkles, Trash2, X } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Link, useSearchParams } from "react-router-dom";
 
 import { analyzeTelemetry, createFleetVehicle, currentUser, deleteTelemetrySession, importTelemetrySession, listFleet, listTelemetrySessions, listUsers, publishDriveReport, saveDriveReport } from "@/api/client";
 import { Button } from "@/components/ui/button";
@@ -14,6 +15,8 @@ const destinationNames: Record<VehiclePurpose, string> = { personal: "My Garage"
 
 export function TelemetryInboxPage() {
   const client = useQueryClient();
+  const [searchParams] = useSearchParams();
+  const selectedSessionId = searchParams.get("session");
   const [summary, setSummary] = useState<SessionSummary>();
   const [telemetryText, setTelemetryText] = useState("");
   const [detected, setDetected] = useState<DetectedVehicle>({});
@@ -54,6 +57,15 @@ export function TelemetryInboxPage() {
     (detected.vin && vehicle.vin?.toUpperCase() === detected.vin) ||
     (detected.make && detected.model && vehicle.make.toLowerCase() === detected.make.toLowerCase() && vehicle.model.toLowerCase() === detected.model.toLowerCase()),
   ), [detected, fleet]);
+
+  useEffect(() => {
+    if (!selectedSessionId) return;
+    window.setTimeout(() => {
+      document
+        .getElementById(`session-${selectedSessionId}`)
+        ?.scrollIntoView({ block: "center" });
+    }, 0);
+  }, [selectedSessionId, sessionsByVehicle]);
 
   async function chooseFiles(files: FileList | null) {
     if (!files) return;
@@ -191,11 +203,16 @@ export function TelemetryInboxPage() {
                 <p className="text-xs uppercase tracking-[.18em] text-mirage-muted">
                   {vehicle ? destinationNames[vehicle.purpose] : "Unmatched vehicle"}
                 </p>
-                <h2 className="mt-2 text-2xl font-semibold">
-                  {vehicle
-                    ? `${vehicle.year} ${vehicle.make} ${vehicle.model}`
-                    : "Vehicle record unavailable"}
-                </h2>
+                {vehicle ? (
+                  <Link
+                    to={`/admin/garage/${vehicle.id}`}
+                    className="mt-2 block text-2xl font-semibold transition hover:text-mirage-cyan"
+                  >
+                    {vehicle.year} {vehicle.make} {vehicle.model}
+                  </Link>
+                ) : (
+                  <h2 className="mt-2 text-2xl font-semibold">Vehicle record unavailable</h2>
+                )}
                 <p className="mt-1 text-sm text-mirage-muted">
                   {vehicle?.trim ? `${vehicle.trim} · ` : ""}
                   {vehicle ? `${vehicle.mileage.toLocaleString()} miles · ` : ""}
@@ -210,7 +227,15 @@ export function TelemetryInboxPage() {
                 const report = reports[session.id];
                 const access = reportAccess[session.id] ?? { visibility: "private" as const };
                 return (
-                  <Card key={session.id} className="bg-black/10 p-4">
+                  <Card
+                    key={session.id}
+                    id={`session-${session.id}`}
+                    className={`bg-black/10 p-4 transition ${
+                      selectedSessionId === session.id
+                        ? "border-mirage-cyan/70 bg-mirage-cyan/10"
+                        : ""
+                    }`}
+                  >
                     <div className="flex flex-wrap items-start justify-between gap-4">
                       <div>
                         <div className="flex items-center gap-2">

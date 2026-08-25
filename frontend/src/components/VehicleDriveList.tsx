@@ -1,4 +1,5 @@
 import { Activity, Gauge } from "lucide-react";
+import { Link } from "react-router-dom";
 
 import { Card } from "@/components/ui/card";
 import type { FleetVehicle, TelemetrySession } from "@/types/fleet";
@@ -32,7 +33,8 @@ export function VehicleDriveList({
       {vehicleSessions.length ? (
         <div className="mt-4 grid gap-3">
           {vehicleSessions.map((session) => (
-            <Card key={session.id} className="bg-black/10 p-4">
+            <Link key={session.id} to={`/admin/telemetry?session=${session.id}`} className="block">
+              <Card className="bg-black/10 p-4 transition hover:border-mirage-cyan/40 hover:bg-white/[.04]">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
                   <h4 className="font-semibold">{session.label}</h4>
@@ -58,7 +60,8 @@ export function VehicleDriveList({
                   </span>
                 ))}
               </div>
-            </Card>
+              </Card>
+            </Link>
           ))}
         </div>
       ) : (

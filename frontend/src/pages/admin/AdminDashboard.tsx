@@ -14,6 +14,7 @@ import {
   X,
 } from "lucide-react";
 import { useState } from "react";
+import { Link } from "react-router-dom";
 
 import {
   createFleetVehicle,
@@ -545,6 +546,9 @@ export function AdminDashboard() {
                     <div className="mb-5">
                       <VehicleDriveList vehicle={vehicle} sessions={sessions} />
                     </div>
+                    <Button asChild variant="secondary" className="mb-5">
+                      <Link to={`/admin/garage/${vehicle.id}`}>Open vehicle</Link>
+                    </Button>
                     <div className="flex items-center gap-2 border-b border-white/[.08] pb-3 text-sm font-semibold uppercase tracking-[.16em]">
                       <Wrench size={17} /> Maintenance checklist
                     </div>

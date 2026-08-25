@@ -5,6 +5,7 @@ import { AdminLayout } from "@/layouts/AdminLayout";
 import { PublicLayout } from "@/layouts/PublicLayout";
 import { AdminDashboard } from "@/pages/admin/AdminDashboard";
 import { GarageWorkspacePage } from "@/pages/admin/GarageWorkspacePage";
+import { GarageVehiclePage } from "@/pages/admin/GarageVehiclePage";
 import { DriveReportPage } from "@/pages/public/DriveReportPage";
 import { PlaceholderAdminPage } from "@/pages/admin/PlaceholderAdminPage";
 import { AboutPage } from "@/pages/public/AboutPage";
@@ -93,6 +94,7 @@ export function App() {
           <Route path="admin" element={<AdminLayout />}>
             <Route index element={<AdminDashboard />} />
             <Route path="telemetry" element={<TelemetryInboxPage />} />
+            <Route path="garage/:vehicleId" element={<GarageVehiclePage />} />
             <Route path="vehicles" element={<Navigate to="/admin" replace />} />
             <Route
               path="working-on"
