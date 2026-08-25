@@ -26,6 +26,7 @@ export interface FleetVehicle {
   year: number;
   make: string;
   model: string;
+  nickname: string;
   trim: string;
   mileage: number;
   vin?: string;
@@ -45,6 +46,7 @@ export interface FleetVehicleInput {
   year: number;
   make: string;
   model: string;
+  nickname?: string;
   trim: string;
   mileage: number;
   vin?: string;

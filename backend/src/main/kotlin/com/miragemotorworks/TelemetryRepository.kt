@@ -51,6 +51,25 @@ class TelemetryRepository(private val database: Database) {
         }
     }
 
+    fun update(userId: String, sessionId: String, update: TelemetrySessionUpdate): TelemetrySession? {
+        require(update.label.trim().length in 1..160)
+        return database.withConnection { connection ->
+            connection.prepareStatement(
+                """UPDATE telemetry_sessions s SET label = ?, imported_at = imported_at
+                FROM owned_vehicles v
+                LEFT JOIN owned_vehicle_shares sh ON sh.vehicle_id = v.id AND sh.user_id = ?::uuid
+                WHERE s.id = ?::uuid AND s.vehicle_id = v.id AND (v.user_id = ?::uuid OR sh.permission = 'editor')
+                RETURNING s.*"""
+            ).use { statement ->
+                statement.setString(1, update.label.trim())
+                statement.setString(2, userId)
+                statement.setString(3, sessionId)
+                statement.setString(4, userId)
+                statement.executeQuery().use { result -> if (result.next()) result.toSession() else null }
+            }
+        }
+    }
+
     fun delete(userId: String, sessionId: String): Boolean = database.withConnection { connection ->
         connection.prepareStatement(
             """DELETE FROM telemetry_sessions s
@@ -78,6 +97,8 @@ class TelemetryRepository(private val database: Database) {
         }
         reportForUser(userId, sessionId)!!
     }
+
+    fun report(userId: String, sessionId: String): DriveReport? = reportForUser(userId, sessionId)
 
     fun publish(userId: String, sessionId: String, access: PublishReportRequest): DriveReport? {
         require(access.visibility in setOf("private", "customer", "public"))

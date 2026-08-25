@@ -5,6 +5,7 @@ import kotlinx.serialization.Serializable
 @Serializable data class MetricSummary(val key: String, val label: String, val unit: String, val samples: Long, val min: Double, val average: Double, val max: Double)
 @Serializable data class SessionImport(val vehicleId: String, val externalSessionId: String, val label: String, val startedAt: String, val durationMs: Long, val samples: Long, val obdRequests: Long, val obdErrors: Long, val source: String, val metrics: List<MetricSummary>, val recordedMileage: Int? = null)
 @Serializable data class TelemetrySession(val id: String, val vehicleId: String, val externalSessionId: String, val label: String, val startedAt: String, val durationMs: Long, val samples: Long, val obdRequests: Long, val obdErrors: Long, val source: String, val metrics: List<MetricSummary>, val importedAt: String, val recordedMileage: Int? = null)
+@Serializable data class TelemetrySessionUpdate(val label: String)
 @Serializable data class ReportDraft(val title: String, val overview: String, val observations: List<String>)
 @Serializable data class MetricAssessment(val key: String, val referenceLow: Double, val referenceHigh: Double, val status: String, val description: String, val referenceType: String = "generic_guidance")
 @Serializable data class PublishReportRequest(val visibility: String = "private", val viewerUserId: String? = null)

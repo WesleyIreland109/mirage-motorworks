@@ -6,6 +6,7 @@ import { deleteFleetVehicle, updateFleetVehicle } from "@/api/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { vehicleDisplayName } from "@/lib/fleetDisplay";
 import type { FleetVehicle, FleetVehicleUpdate, VehiclePurpose } from "@/types/fleet";
 
 const purposeLabels: Record<VehiclePurpose, string> = {
@@ -29,6 +30,7 @@ function updateFromVehicle(vehicle: FleetVehicle): FleetVehicleUpdate {
     year: vehicle.year,
     make: vehicle.make,
     model: vehicle.model,
+    nickname: vehicle.nickname ?? "",
     trim: vehicle.trim,
     mileage: vehicle.mileage,
     vin: vehicle.vin ?? "",
@@ -117,7 +119,7 @@ export function FleetVehicleControls({ vehicle }: { vehicle: FleetVehicle }) {
             variant="ghost"
             disabled={remove.isPending}
             onClick={() => {
-              if (window.confirm(`Delete ${vehicle.year} ${vehicle.make} ${vehicle.model} from GarageOS?`)) {
+              if (window.confirm(`Delete ${vehicleDisplayName(vehicle)} from GarageOS?`)) {
                 remove.mutate();
               }
             }}
@@ -131,9 +133,10 @@ export function FleetVehicleControls({ vehicle }: { vehicle: FleetVehicle }) {
       {editing && (
         <div className="mt-5">
           <div className="grid gap-3 md:grid-cols-4">
-            <Input type="number" value={form.year} onChange={(event) => field("year", Number(event.target.value))} />
+            <Input inputMode="numeric" placeholder="Year" value={form.year} onChange={(event) => field("year", Number(event.target.value))} />
             <Input placeholder="Make" value={form.make} onChange={(event) => field("make", event.target.value)} />
             <Input placeholder="Model" value={form.model} onChange={(event) => field("model", event.target.value)} />
+            <Input placeholder="Nickname" value={form.nickname ?? ""} onChange={(event) => field("nickname", event.target.value)} />
             <Input placeholder="Trim" value={form.trim} onChange={(event) => field("trim", event.target.value)} />
             <Input type="number" placeholder="Mileage" value={form.mileage || ""} onChange={(event) => field("mileage", Number(event.target.value))} />
             <Input placeholder="VIN" value={form.vin ?? ""} onChange={(event) => field("vin", event.target.value)} />

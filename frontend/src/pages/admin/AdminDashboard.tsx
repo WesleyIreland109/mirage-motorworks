@@ -30,6 +30,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { vehicleDisplayName } from "@/lib/fleetDisplay";
 import type {
   Condition,
   FleetVehicle,
@@ -57,6 +58,7 @@ const initial: FleetVehicleInput = {
   year: new Date().getFullYear(),
   make: "",
   model: "",
+  nickname: "",
   trim: "",
   mileage: 0,
   vin: "",
@@ -107,7 +109,7 @@ function AddVehicle({ close }: { close: () => void }) {
       </div>
       <div className="mt-6 grid gap-4 md:grid-cols-4">
         <Input
-          type="number"
+          inputMode="numeric"
           placeholder="Year"
           value={form.year}
           onChange={(e) => field("year", Number(e.target.value))}
@@ -121,6 +123,11 @@ function AddVehicle({ close }: { close: () => void }) {
           placeholder="Model"
           value={form.model}
           onChange={(e) => field("model", e.target.value)}
+        />
+        <Input
+          placeholder="Nickname (optional)"
+          value={form.nickname}
+          onChange={(e) => field("nickname", e.target.value)}
         />
         <Input
           placeholder="Trim (optional)"
@@ -481,7 +488,7 @@ export function AdminDashboard() {
                       miles
                     </p>
                     <h2 className="mt-2 text-2xl font-semibold">
-                      {vehicle.year} {vehicle.make} {vehicle.model}
+                      {vehicleDisplayName(vehicle)}
                     </h2>
                     <p className="text-sm text-mirage-muted">{vehicle.trim}</p>
                   </div>

@@ -15,6 +15,7 @@ import { FleetVehicleControls } from "@/components/FleetVehicleControls";
 import { VehicleDriveList } from "@/components/VehicleDriveList";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { vehicleDisplayName, vehicleFullLabel } from "@/lib/fleetDisplay";
 import type { MaintenanceTask, TaskStatus, VehiclePurpose } from "@/types/fleet";
 
 const destinationNames: Record<VehiclePurpose, string> = {
@@ -133,10 +134,11 @@ export function GarageVehiclePage() {
             {destinationNames[vehicle.purpose]} Vehicle
           </p>
           <h1 className="mt-2 text-4xl font-semibold">
-            {vehicle.year} {vehicle.make} {vehicle.model}
+            {vehicleDisplayName(vehicle)}
           </h1>
           <p className="mt-2 text-sm text-mirage-muted">
-            {vehicle.trim ? `${vehicle.trim} · ` : ""}
+            {vehicleFullLabel(vehicle)}
+            {vehicle.trim ? ` · ${vehicle.trim}` : ""} ·{" "}
             {vehicle.mileage.toLocaleString()} miles
             {vehicle.vin ? ` · VIN ${vehicle.vin}` : ""}
           </p>

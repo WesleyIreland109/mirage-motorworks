@@ -1,20 +1,22 @@
-import { Activity, Bot, Car, Check, Copy, FileUp, Send, Sparkles, Trash2, X } from "lucide-react";
+import { Activity, Bot, Car, Check, Copy, Edit3, ExternalLink, FileUp, Save, Send, Sparkles, Trash2, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 
-import { analyzeTelemetry, createFleetVehicle, currentUser, deleteTelemetrySession, importTelemetrySession, listFleet, listTelemetrySessions, listUsers, publishDriveReport, saveDriveReport } from "@/api/client";
+import { analyzeTelemetry, createFleetVehicle, currentUser, deleteTelemetrySession, getDriveReportForSession, importTelemetrySession, listFleet, listTelemetrySessions, listUsers, publishDriveReport, saveDriveReport, updateTelemetrySession } from "@/api/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { detectVehicle, summarizeTelemetry, type DetectedVehicle, type SessionSummary } from "@/lib/telemetryImport";
+import { vehicleDisplayName, vehicleFullLabel } from "@/lib/fleetDisplay";
 import type { DriveReport, FleetVehicle, MirageAIAnalysis, TelemetrySession, VehiclePurpose } from "@/types/fleet";
 
 const destinationNames: Record<VehiclePurpose, string> = { personal: "My Garage", working_on: "Working On", flip: "Flips" };
 
 export function TelemetryInboxPage() {
   const client = useQueryClient();
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const selectedSessionId = searchParams.get("session");
   const [summary, setSummary] = useState<SessionSummary>();
@@ -24,9 +26,11 @@ export function TelemetryInboxPage() {
   const [vehicleId, setVehicleId] = useState("");
   const [purpose, setPurpose] = useState<VehiclePurpose>("personal");
   const [mileage, setMileage] = useState("");
+  const [vehicleNickname, setVehicleNickname] = useState("");
   const [ownerName, setOwnerName] = useState("");
   const [notes, setNotes] = useState("");
   const [reports, setReports] = useState<Record<string, DriveReport>>({});
+  const [renaming, setRenaming] = useState<Record<string, string>>({});
   const [message, setMessage] = useState("");
   const [reportAccess, setReportAccess] = useState<Record<string, { visibility: "private" | "customer" | "public"; viewerUserId?: string }>>({});
   const [aiOpen, setAiOpen] = useState(false);
@@ -47,8 +51,8 @@ export function TelemetryInboxPage() {
       groups.set(key, group);
     });
     return Array.from(groups.values()).sort((a, b) => {
-      const aLabel = a.vehicle ? `${a.vehicle.make} ${a.vehicle.model}` : "Unknown vehicle";
-      const bLabel = b.vehicle ? `${b.vehicle.make} ${b.vehicle.model}` : "Unknown vehicle";
+      const aLabel = a.vehicle ? vehicleDisplayName(a.vehicle) : "Unknown vehicle";
+      const bLabel = b.vehicle ? vehicleDisplayName(b.vehicle) : "Unknown vehicle";
       return aLabel.localeCompare(bLabel);
     });
   }, [fleet, sessions]);
@@ -80,7 +84,7 @@ export function TelemetryInboxPage() {
       const identity = detectVehicle(nextSummary); setDetected(identity);
       const match = fleet.find((vehicle) => (identity.vin && vehicle.vin?.toUpperCase() === identity.vin) ||
         (identity.make && identity.model && vehicle.make.toLowerCase() === identity.make.toLowerCase() && vehicle.model.toLowerCase() === identity.model.toLowerCase()));
-      if (match) { setMode("existing"); setVehicleId(match.id); setMessage(`Likely match found: ${match.year} ${match.make} ${match.model}.`); }
+      if (match) { setMode("existing"); setVehicleId(match.id); setMessage(`Likely match found: ${vehicleDisplayName(match)}.`); }
       else setMessage(identity.make || identity.model ? "Vehicle identity detected. Confirm the fields and destination." : "Identity was not available in this recording. Enter the vehicle details to continue.");
     }
   }
@@ -109,9 +113,20 @@ export function TelemetryInboxPage() {
     },
   });
 
+  const renameSession = useMutation({
+    mutationFn: ({ sessionId, label }: { sessionId: string; label: string }) =>
+      updateTelemetrySession(sessionId, label),
+    onSuccess: () => {
+      setRenaming({});
+      client.invalidateQueries({ queryKey: ["telemetry-sessions"] });
+      setMessage("Drive renamed.");
+    },
+    onError: () => setMessage("Unable to rename that drive."),
+  });
+
   function clearUpload() {
     setSummary(undefined); setTelemetryText(""); setDetected({}); setVehicleId(""); setMileage("");
-    setOwnerName(""); setNotes(""); setAiAnalysis(undefined); setAiOpen(false);
+    setOwnerName(""); setVehicleNickname(""); setNotes(""); setAiAnalysis(undefined); setAiOpen(false);
     setMessage("Selected local files cleared. Nothing was uploaded.");
   }
 
@@ -133,7 +148,7 @@ export function TelemetryInboxPage() {
       if (!target) {
         if (!detected.make || !detected.model || !detected.year || !mileage) throw new Error("Confirm year, make, model, and mileage");
         target = await createFleetVehicle({
-          year: detected.year, make: detected.make, model: detected.model, trim: detected.trim ?? "",
+          year: detected.year, make: detected.make, model: detected.model, nickname: vehicleNickname, trim: detected.trim ?? "",
           mileage: Number(mileage), vin: detected.vin, purpose,
           primaryUse: purpose === "flip" ? "resale" : "diagnostic", ownerName: ownerName || undefined,
           notes: [notes, detected.profileId ? `Telemetry profile: ${detected.profileId}` : ""].filter(Boolean).join("\n"), answers: [], customItems: [],
@@ -153,23 +168,68 @@ export function TelemetryInboxPage() {
         setReports((current) => ({ ...current, [session.id]: report }));
       }
       client.invalidateQueries({ queryKey: ["fleet"] }); client.invalidateQueries({ queryKey: ["telemetry-sessions"] });
-      setSummary(undefined); setTelemetryText(""); setDetected({}); setVehicleId(""); setMileage("");
+      setSummary(undefined); setTelemetryText(""); setDetected({}); setVehicleId(""); setMileage(""); setVehicleNickname("");
       setMessage("Drive imported and attached successfully.");
     },
     onError: (error) => setMessage(error instanceof Error ? error.message : "Unable to import drive."),
   });
 
-  async function draftReport(sessionId: string) {
-    const session = sessions.find((item) => item.id === sessionId)!;
-    const vehicle = fleet.find((item) => item.id === session.vehicleId)!;
-    const observations = [
-      `${session.metrics.length} live metric${session.metrics.length === 1 ? " was" : "s were"} available during this recording.`,
-      ...session.metrics.slice(0, 6).map((metric) => `${metric.label}: ${metric.min.toFixed(1)}–${metric.max.toFixed(1)}${metric.unit ? ` ${metric.unit}` : ""} (${metric.samples} samples).`),
-      session.source === "simulator" ? "SIMULATOR DATA: no vehicle-health conclusions should be drawn from it." : "These observations describe recorded OBD values only; they are not a mechanical inspection or diagnosis.",
-    ];
-    const report = await saveDriveReport(session.id, { title: `Mirage Drive Summary — ${vehicle.year} ${vehicle.make} ${vehicle.model}`, overview: session.source === "simulator" ? "A simulator-backed Mirage session was reviewed." : "Mirage reviewed the data channels available during this drive and summarized the observed ranges below.", observations });
-    setReports((current) => ({ ...current, [session.id]: report }));
+  function defaultReportDraft(session: TelemetrySession, vehicle: FleetVehicle) {
+    const label = vehicleDisplayName(vehicle);
+    const fullLabel = vehicleFullLabel(vehicle);
+    const metricSummary = session.metrics.slice(0, 6).map((metric) => `${metric.label}: ${metric.min.toFixed(1)}-${metric.max.toFixed(1)}${metric.unit ? ` ${metric.unit}` : ""} (${metric.samples} samples).`);
+    return {
+      title: `Mirage Drive Summary - ${label}`,
+      overview: session.source === "simulator" ? `A simulator-backed Mirage session was reviewed for ${fullLabel}.` : `Mirage reviewed the data channels available during this drive for ${fullLabel}.`,
+      observations: [
+        `${session.metrics.length} live metric${session.metrics.length === 1 ? " was" : "s were"} available during this recording.`,
+        ...metricSummary,
+        session.source === "simulator" ? "SIMULATOR DATA: no vehicle-health conclusions should be drawn from it." : "These observations describe recorded OBD values only; they are not a mechanical inspection or diagnosis.",
+      ],
+    };
   }
+
+  async function ensureReport(sessionId: string) {
+    const existing = reports[sessionId] ?? await getDriveReportForSession(sessionId);
+    if (existing) {
+      setReports((current) => ({ ...current, [sessionId]: existing }));
+      setReportAccess((current) => ({
+        ...current,
+        [sessionId]: { visibility: existing.visibility, viewerUserId: existing.viewerUserId },
+      }));
+      return existing;
+    }
+    const session = sessions.find((item) => item.id === sessionId);
+    const vehicle = session ? fleet.find((item) => item.id === session.vehicleId) : undefined;
+    if (!session || !vehicle) throw new Error("Drive is missing its vehicle record.");
+    const report = await saveDriveReport(session.id, defaultReportDraft(session, vehicle));
+    setReports((current) => ({ ...current, [session.id]: report }));
+    return report;
+  }
+
+  async function draftReport(sessionId: string) {
+    const report = await ensureReport(sessionId);
+    setMessage(report.status === "draft" ? "Draft report is ready." : "Existing report loaded.");
+  }
+
+  async function openReport(sessionId: string) {
+    const report = await ensureReport(sessionId);
+    const access = reportAccess[sessionId] ?? { visibility: report.visibility as "private" | "customer" | "public", viewerUserId: report.viewerUserId };
+    if (access.visibility === "customer" && !access.viewerUserId) {
+      setMessage("Select the customer account that may view this report.");
+      return;
+    }
+    const published = report.status === "published" ? report : await publishDriveReport(sessionId, access);
+    setReports((current) => ({ ...current, [sessionId]: published }));
+    navigate(`/drive-reports/${published.publicToken}`);
+  }
+
+  async function saveAccess(sessionId: string) {
+    await ensureReport(sessionId);
+    await publish(sessionId);
+    setMessage("Report access updated.");
+  }
+
   async function publish(sessionId: string) {
     const access = reportAccess[sessionId] ?? { visibility: "private" as const };
     if (access.visibility === "customer" && !access.viewerUserId) { setMessage("Select the customer account that may view this report."); return; }
@@ -182,11 +242,11 @@ export function TelemetryInboxPage() {
       <div className="flex items-center gap-3"><FileUp className="text-mirage-cyan"/><div><h2 className="text-xl font-semibold">Import recorded drive</h2><p className="text-sm text-mirage-muted">Choose the summary JSON and telemetry JSONL. Raw files remain in your browser.</p></div></div>
       <Input className="mt-5" type="file" multiple accept=".json,.jsonl" onChange={(event) => chooseFiles(event.target.files)}/>
       {(summary || telemetryText) && <div className="mt-6 space-y-5 border-t border-mirage-border pt-5">
-        {likelyMatch && <Card className="border-mirage-cyan/40 bg-mirage-cyan/5 p-4 text-sm">Likely match: <strong>{likelyMatch.year} {likelyMatch.make} {likelyMatch.model}</strong></Card>}
+        {likelyMatch && <Card className="border-mirage-cyan/40 bg-mirage-cyan/5 p-4 text-sm">Likely match: <strong>{vehicleDisplayName(likelyMatch)}</strong></Card>}
         <div className="flex flex-wrap gap-2"><Button variant={mode === "existing" ? "primary" : "secondary"} onClick={() => setMode("existing")}>Attach to existing</Button><Button variant={mode === "new" ? "primary" : "secondary"} onClick={() => setMode("new")}>Add a new vehicle</Button></div>
-        {mode === "existing" ? <div className="grid gap-3 md:grid-cols-2"><select className="h-11 w-full border border-mirage-border bg-mirage-secondary px-3 text-sm" value={vehicleId} onChange={(event) => setVehicleId(event.target.value)}><option value="">Select vehicle</option>{fleet.map((vehicle) => <option key={vehicle.id} value={vehicle.id}>{destinationNames[vehicle.purpose]} · {vehicle.year} {vehicle.make} {vehicle.model}</option>)}</select><Input type="number" placeholder="Confirmed mileage (optional)" value={mileage} onChange={(event) => setMileage(event.target.value)}/></div> : <>
+        {mode === "existing" ? <div className="grid gap-3 md:grid-cols-2"><select className="h-11 w-full border border-mirage-border bg-mirage-secondary px-3 text-sm" value={vehicleId} onChange={(event) => setVehicleId(event.target.value)}><option value="">Select vehicle</option>{fleet.map((vehicle) => <option key={vehicle.id} value={vehicle.id}>{destinationNames[vehicle.purpose]} · {vehicleDisplayName(vehicle)}</option>)}</select><Input inputMode="numeric" placeholder="Confirmed mileage (optional)" value={mileage} onChange={(event) => setMileage(event.target.value)}/></div> : <>
           <div><p className="mb-2 text-xs font-semibold uppercase tracking-[.18em] text-mirage-muted">Send to</p><div className="flex flex-wrap gap-2">{(Object.keys(destinationNames) as VehiclePurpose[]).map((value) => <Button key={value} variant={purpose === value ? "primary" : "secondary"} onClick={() => setPurpose(value)}>{destinationNames[value]}</Button>)}</div></div>
-          <div className="grid gap-3 md:grid-cols-3"><Input type="number" placeholder="Year" value={detected.year ?? ""} onChange={(e) => setDetected({...detected, year:Number(e.target.value)})}/><Input placeholder="Make" value={detected.make ?? ""} onChange={(e) => setDetected({...detected, make:e.target.value})}/><Input placeholder="Model" value={detected.model ?? ""} onChange={(e) => setDetected({...detected, model:e.target.value})}/><Input placeholder="Trim / generation" value={detected.trim ?? ""} onChange={(e) => setDetected({...detected, trim:e.target.value})}/><Input placeholder="VIN (when available)" value={detected.vin ?? ""} onChange={(e) => setDetected({...detected, vin:e.target.value})}/><Input type="number" placeholder="Confirmed mileage" value={mileage} onChange={(e) => setMileage(e.target.value)}/>{purpose === "working_on" && <Input placeholder="Customer / owner name" value={ownerName} onChange={(e) => setOwnerName(e.target.value)}/>}</div>
+          <div className="grid gap-3 md:grid-cols-3"><Input inputMode="numeric" placeholder="Year" value={detected.year ?? ""} onChange={(e) => setDetected({...detected, year:Number(e.target.value)})}/><Input placeholder="Make" value={detected.make ?? ""} onChange={(e) => setDetected({...detected, make:e.target.value})}/><Input placeholder="Model" value={detected.model ?? ""} onChange={(e) => setDetected({...detected, model:e.target.value})}/><Input placeholder="Nickname" value={vehicleNickname} onChange={(e) => setVehicleNickname(e.target.value)}/><Input placeholder="Trim / generation" value={detected.trim ?? ""} onChange={(e) => setDetected({...detected, trim:e.target.value})}/><Input placeholder="VIN (when available)" value={detected.vin ?? ""} onChange={(e) => setDetected({...detected, vin:e.target.value})}/><Input inputMode="numeric" placeholder="Confirmed mileage" value={mileage} onChange={(e) => setMileage(e.target.value)}/>{purpose === "working_on" && <Input placeholder="Customer / owner name" value={ownerName} onChange={(e) => setOwnerName(e.target.value)}/>}</div>
           <Textarea placeholder="Private intake notes" value={notes} onChange={(e) => setNotes(e.target.value)}/>
         </>}
         <div className="flex flex-wrap gap-2"><Button disabled={!summary || !telemetryText || ingest.isPending || (mode === "existing" && !vehicleId)} onClick={() => ingest.mutate()}><Car size={16}/> {mode === "existing" ? "Attach drive" : `Add to ${destinationNames[purpose]}`}</Button><Button variant="ghost" onClick={clearUpload}><X size={16}/> Clear upload</Button></div>
@@ -208,7 +268,7 @@ export function TelemetryInboxPage() {
                     to={`/admin/garage/${vehicle.id}`}
                     className="mt-2 block text-2xl font-semibold transition hover:text-mirage-cyan"
                   >
-                    {vehicle.year} {vehicle.make} {vehicle.model}
+                    {vehicleDisplayName(vehicle)}
                   </Link>
                 ) : (
                   <h2 className="mt-2 text-2xl font-semibold">Vehicle record unavailable</h2>
@@ -240,7 +300,28 @@ export function TelemetryInboxPage() {
                       <div>
                         <div className="flex items-center gap-2">
                           <Activity size={17} className="text-mirage-cyan" />
-                          <h3 className="font-semibold">{session.label}</h3>
+                          {renaming[session.id] != null ? (
+                            <div className="flex flex-wrap gap-2">
+                              <Input
+                                className="h-9"
+                                value={renaming[session.id]}
+                                onChange={(event) => setRenaming((current) => ({ ...current, [session.id]: event.target.value }))}
+                              />
+                              <Button
+                                size="sm"
+                                disabled={renameSession.isPending || !renaming[session.id].trim()}
+                                onClick={() => renameSession.mutate({ sessionId: session.id, label: renaming[session.id] })}
+                              >
+                                <Save size={15} />
+                                Save
+                              </Button>
+                              <Button size="sm" variant="ghost" onClick={() => setRenaming({})}>
+                                Cancel
+                              </Button>
+                            </div>
+                          ) : (
+                            <h3 className="font-semibold">{session.label}</h3>
+                          )}
                         </div>
                         <p className="mt-2 text-sm text-mirage-muted">
                           {new Date(session.startedAt).toLocaleString()} ·{" "}
@@ -251,8 +332,16 @@ export function TelemetryInboxPage() {
                         </p>
                       </div>
                       <div className="flex flex-wrap gap-2">
-                        <Button variant="secondary" onClick={() => draftReport(session.id)}>
-                          Build draft
+                        <Button variant="secondary" onClick={() => openReport(session.id)}>
+                          <ExternalLink size={15} />
+                          Open report
+                        </Button>
+                        <Button variant="ghost" onClick={() => setRenaming({ [session.id]: session.label })}>
+                          <Edit3 size={15} />
+                          Rename
+                        </Button>
+                        <Button variant="ghost" onClick={() => draftReport(session.id)}>
+                          Manage access
                         </Button>
                         {report?.status === "published" && (
                           <Button
@@ -280,35 +369,35 @@ export function TelemetryInboxPage() {
                         <p className="mt-4 border-l-2 border-mirage-cyan pl-4 text-sm text-mirage-muted">
                           {report.overview}
                         </p>
-                        {report.status === "draft" && (
-                          <div className="mt-5 grid gap-3 border-t border-mirage-border pt-5 md:grid-cols-[220px_1fr_auto]">
+                        <div className="mt-5 grid gap-3 border-t border-mirage-border pt-5 md:grid-cols-[220px_1fr_auto]">
+                          <select
+                            className="h-11 border border-mirage-border bg-mirage-secondary px-3 text-sm"
+                            value={access.visibility}
+                            onChange={(event) => setReportAccess({...reportAccess,[session.id]:{visibility:event.target.value as "private" | "customer" | "public"}})}
+                          >
+                            <option value="private">Private - admins/owner</option>
+                            {signedInUser?.role === "admin" && <option value="customer">Assigned customer only</option>}
+                            <option value="public">Anyone with the link</option>
+                          </select>
+                          {access.visibility === "customer" ? (
                             <select
                               className="h-11 border border-mirage-border bg-mirage-secondary px-3 text-sm"
-                              value={access.visibility}
-                              onChange={(event) => setReportAccess({...reportAccess,[session.id]:{visibility:event.target.value as "private" | "customer" | "public"}})}
+                              value={access.viewerUserId ?? ""}
+                              onChange={(event) => setReportAccess({...reportAccess,[session.id]:{...access,viewerUserId:event.target.value}})}
                             >
-                              <option value="private">Private - admins/owner</option>
-                              {signedInUser?.role === "admin" && <option value="customer">Assigned customer only</option>}
-                              <option value="public">Anyone with the link</option>
+                              <option value="">Select registered customer</option>
+                              {customers.map((customer) => <option key={customer.id} value={customer.id}>{customer.displayName} · {customer.email}</option>)}
                             </select>
-                            {access.visibility === "customer" ? (
-                              <select
-                                className="h-11 border border-mirage-border bg-mirage-secondary px-3 text-sm"
-                                value={access.viewerUserId ?? ""}
-                                onChange={(event) => setReportAccess({...reportAccess,[session.id]:{...access,viewerUserId:event.target.value}})}
-                              >
-                                <option value="">Select registered customer</option>
-                                {customers.map((customer) => <option key={customer.id} value={customer.id}>{customer.displayName} · {customer.email}</option>)}
-                              </select>
-                            ) : (
-                              <p className="self-center text-xs text-mirage-muted">Choose who may open the generated link.</p>
-                            )}
-                            <Button onClick={() => publish(session.id)}>
-                              <Send size={15} />
-                              Publish
-                            </Button>
-                          </div>
-                        )}
+                          ) : (
+                            <p className="self-center text-xs text-mirage-muted">
+                              Current access: {report.status === "published" ? report.visibility : "draft not published"}
+                            </p>
+                          )}
+                          <Button onClick={() => saveAccess(session.id)}>
+                            <Send size={15} />
+                            Save access
+                          </Button>
+                        </div>
                       </>
                     )}
                   </Card>

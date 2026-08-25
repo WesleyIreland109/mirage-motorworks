@@ -29,19 +29,19 @@ class FleetRepository(private val database: Database) {
                 val id = UUID.randomUUID()
                 connection.prepareStatement(
                     """INSERT INTO owned_vehicles
-                    (id, user_id, year, make, model, trim, mileage, vin, primary_use, annual_mileage, notes,
+                    (id, user_id, year, make, model, nickname, trim, mileage, vin, primary_use, annual_mileage, notes,
                      purpose, owner_name, acquisition_price_cents, target_sale_price_cents)
-                    VALUES (?, ?::uuid, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"""
+                    VALUES (?, ?::uuid, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"""
                 ).use { statement ->
                     statement.setObject(1, id); statement.setString(2, userId); statement.setInt(3, input.year)
                     statement.setString(4, input.make.trim()); statement.setString(5, input.model.trim())
-                    statement.setString(6, input.trim.trim()); statement.setInt(7, input.mileage)
-                    statement.setString(8, input.vin?.trim()?.ifEmpty { null }); statement.setString(9, input.primaryUse)
-                    if (input.annualMileage == null) statement.setNull(10, java.sql.Types.INTEGER) else statement.setInt(10, input.annualMileage)
-                    statement.setString(11, input.notes.trim()); statement.setString(12, input.purpose)
-                    statement.setString(13, input.ownerName?.trim()?.ifEmpty { null })
-                    if (input.acquisitionPriceCents == null) statement.setNull(14, java.sql.Types.BIGINT) else statement.setLong(14, input.acquisitionPriceCents)
-                    if (input.targetSalePriceCents == null) statement.setNull(15, java.sql.Types.BIGINT) else statement.setLong(15, input.targetSalePriceCents)
+                    statement.setString(6, input.nickname.trim()); statement.setString(7, input.trim.trim()); statement.setInt(8, input.mileage)
+                    statement.setString(9, input.vin?.trim()?.ifEmpty { null }); statement.setString(10, input.primaryUse)
+                    if (input.annualMileage == null) statement.setNull(11, java.sql.Types.INTEGER) else statement.setInt(11, input.annualMileage)
+                    statement.setString(12, input.notes.trim()); statement.setString(13, input.purpose)
+                    statement.setString(14, input.ownerName?.trim()?.ifEmpty { null })
+                    if (input.acquisitionPriceCents == null) statement.setNull(15, java.sql.Types.BIGINT) else statement.setLong(15, input.acquisitionPriceCents)
+                    if (input.targetSalePriceCents == null) statement.setNull(16, java.sql.Types.BIGINT) else statement.setLong(16, input.targetSalePriceCents)
                     statement.executeUpdate()
                 }
                 input.answers.filter { it.condition != "good" }.forEach { answer ->
@@ -69,7 +69,7 @@ class FleetRepository(private val database: Database) {
         return database.withConnection { connection ->
             connection.prepareStatement(
                 """UPDATE owned_vehicles SET
-                year = ?, make = ?, model = ?, trim = ?, mileage = ?, vin = ?, primary_use = ?,
+                year = ?, make = ?, model = ?, nickname = ?, trim = ?, mileage = ?, vin = ?, primary_use = ?,
                 annual_mileage = ?, notes = ?, purpose = ?, owner_name = ?,
                 acquisition_price_cents = ?, target_sale_price_cents = ?, updated_at = NOW()
                 WHERE id = ?::uuid AND user_id = ?::uuid"""
@@ -77,18 +77,19 @@ class FleetRepository(private val database: Database) {
                 statement.setInt(1, update.year)
                 statement.setString(2, update.make.trim())
                 statement.setString(3, update.model.trim())
-                statement.setString(4, update.trim.trim())
-                statement.setInt(5, update.mileage)
-                statement.setString(6, update.vin?.trim()?.ifEmpty { null })
-                statement.setString(7, update.primaryUse.trim())
-                if (update.annualMileage == null) statement.setNull(8, java.sql.Types.INTEGER) else statement.setInt(8, update.annualMileage)
-                statement.setString(9, update.notes.trim())
-                statement.setString(10, update.purpose)
-                statement.setString(11, update.ownerName?.trim()?.ifEmpty { null })
-                if (update.acquisitionPriceCents == null) statement.setNull(12, java.sql.Types.BIGINT) else statement.setLong(12, update.acquisitionPriceCents)
-                if (update.targetSalePriceCents == null) statement.setNull(13, java.sql.Types.BIGINT) else statement.setLong(13, update.targetSalePriceCents)
-                statement.setString(14, vehicleId)
-                statement.setString(15, userId)
+                statement.setString(4, update.nickname.trim())
+                statement.setString(5, update.trim.trim())
+                statement.setInt(6, update.mileage)
+                statement.setString(7, update.vin?.trim()?.ifEmpty { null })
+                statement.setString(8, update.primaryUse.trim())
+                if (update.annualMileage == null) statement.setNull(9, java.sql.Types.INTEGER) else statement.setInt(9, update.annualMileage)
+                statement.setString(10, update.notes.trim())
+                statement.setString(11, update.purpose)
+                statement.setString(12, update.ownerName?.trim()?.ifEmpty { null })
+                if (update.acquisitionPriceCents == null) statement.setNull(13, java.sql.Types.BIGINT) else statement.setLong(13, update.acquisitionPriceCents)
+                if (update.targetSalePriceCents == null) statement.setNull(14, java.sql.Types.BIGINT) else statement.setLong(14, update.targetSalePriceCents)
+                statement.setString(15, vehicleId)
+                statement.setString(16, userId)
                 if (statement.executeUpdate() == 0) return@withConnection null
             }
             findOwned(connection, userId, vehicleId)
@@ -232,6 +233,6 @@ class FleetRepository(private val database: Database) {
             } }
         }
         val readiness = (100 - tasks.filter { it.status in setOf("accepted", "in_progress") }.sumOf { it.penalty }).coerceIn(0, 100)
-        return FleetVehicle(vehicleId, getInt("year"), getString("make"), getString("model"), getString("trim"), getInt("mileage"), getString("vin"), getString("primary_use"), getObject("annual_mileage") as? Int, getString("notes"), getString("purpose"), getString("owner_name"), getObject("acquisition_price_cents") as? Long, getObject("target_sale_price_cents") as? Long, readiness, tasks, getString("access_role") ?: "owner", shares)
+        return FleetVehicle(vehicleId, getInt("year"), getString("make"), getString("model"), getString("nickname") ?: "", getString("trim"), getInt("mileage"), getString("vin"), getString("primary_use"), getObject("annual_mileage") as? Int, getString("notes"), getString("purpose"), getString("owner_name"), getObject("acquisition_price_cents") as? Long, getObject("target_sale_price_cents") as? Long, readiness, tasks, getString("access_role") ?: "owner", shares)
     }
 }

@@ -113,6 +113,7 @@ export async function listFleet(): Promise<FleetVehicle[]> {
   const fleet = await request<FleetVehicle[]>("/fleet");
   return fleet.map((vehicle) => ({
     ...vehicle,
+    nickname: vehicle.nickname ?? "",
     tasks: vehicle.tasks ?? [],
     accessRole: vehicle.accessRole ?? "owner",
     shares: vehicle.shares ?? [],
@@ -147,6 +148,24 @@ export async function updateMaintenanceTask(
     method: "PUT",
     body: JSON.stringify({ status, completedMileage }),
   });
+}
+export async function updateTelemetrySession(
+  id: string,
+  label: string,
+): Promise<TelemetrySession> {
+  return request<TelemetrySession>(`/telemetry-sessions/${id}`, {
+    method: "PUT",
+    body: JSON.stringify({ label }),
+  });
+}
+export async function getDriveReportForSession(
+  sessionId: string,
+): Promise<DriveReport | null> {
+  try {
+    return await request<DriveReport>(`/telemetry-sessions/${sessionId}/report`);
+  } catch {
+    return null;
+  }
 }
 export async function shareFleetVehicle(
   vehicleId: string,

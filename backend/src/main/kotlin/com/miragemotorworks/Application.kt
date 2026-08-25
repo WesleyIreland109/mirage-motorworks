@@ -288,11 +288,21 @@ fun Application.module(config: AppConfig, vehicles: VehicleRepository, auth: Aut
                     .onSuccess { call.respond(HttpStatusCode.Created, it) }
                     .onFailure { call.respond(HttpStatusCode.BadRequest, mapOf("message" to "Invalid or unauthorized session import")) }
             }
+            put("/{id}") {
+                val user = call.authenticatedUser(auth) ?: return@put
+                val session = runCatching { telemetry.update(user.id, call.parameters["id"].orEmpty(), call.receive<TelemetrySessionUpdate>()) }.getOrNull()
+                if (session == null) call.respond(HttpStatusCode.NotFound, mapOf("message" to "Telemetry session not found")) else call.respond(session)
+            }
             delete("/{id}") {
                 val user = call.authenticatedUser(auth) ?: return@delete
                 val deleted = runCatching { telemetry.delete(user.id, call.parameters["id"].orEmpty()) }.getOrDefault(false)
                 if (deleted) call.respond(HttpStatusCode.NoContent)
                 else call.respond(HttpStatusCode.NotFound, mapOf("message" to "Telemetry session not found"))
+            }
+            get("/{id}/report") {
+                val user = call.authenticatedUser(auth) ?: return@get
+                val report = telemetry.report(user.id, call.parameters["id"].orEmpty())
+                if (report == null) call.respond(HttpStatusCode.NotFound, mapOf("message" to "Drive report not found")) else call.respond(report)
             }
             put("/{id}/report") {
                 val user = call.authenticatedUser(auth) ?: return@put
