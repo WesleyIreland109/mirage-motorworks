@@ -41,7 +41,7 @@ export function HomePage() {
 
   return (
     <main>
-      <section className="relative flex min-h-[88vh] items-center overflow-hidden px-5 pt-20">
+      <section className="relative flex min-h-[88vh] items-center overflow-hidden px-5 pb-16 pt-32 sm:pt-28 lg:pt-20">
         <div className="star-field absolute inset-0 opacity-60" />
         <div className="atmospheric-grain absolute inset-0 opacity-[0.06]" />
         <div className="absolute inset-x-0 bottom-0 h-[52vh] overflow-hidden">
@@ -80,7 +80,7 @@ export function HomePage() {
           </motion.div>
           <div className="border border-white/[0.06] bg-mirage-surface/60 p-5 shadow-glass backdrop-blur-md">
             <div className="h-px w-full bg-mirage-gradient opacity-70" />
-            <p className="text-xs uppercase tracking-[0.24em] text-mirage-muted">
+            <p className="mt-5 text-xs uppercase tracking-[0.24em] text-mirage-muted">
               Current Focus
             </p>
             <p className="mt-4 text-3xl font-semibold leading-tight">

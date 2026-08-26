@@ -118,6 +118,12 @@ export function PublicLayout() {
             <a href="/resources/used-car-buyer-checklist.pdf" className="inline-flex items-center gap-2 hover:text-white">
               <FileText size={15} /> Buyer Checklist
             </a>
+            <Link to="/privacy" className="hover:text-white">
+              Privacy Policy
+            </Link>
+            <Link to="/terms" className="hover:text-white">
+              Terms
+            </Link>
             <a href="mailto:wesley@miragemw.com" className="inline-flex items-center gap-2 hover:text-white">
               <Mail size={15} /> wesley@miragemw.com
             </a>

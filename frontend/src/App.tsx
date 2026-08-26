@@ -15,7 +15,9 @@ import { HomePage } from "@/pages/public/HomePage";
 import { InventoryPage } from "@/pages/public/InventoryPage";
 import { InvestorProspectusPage } from "@/pages/public/InvestorProspectusPage";
 import { JournalPage } from "@/pages/public/JournalPage";
+import { PrivacyPage } from "@/pages/public/PrivacyPage";
 import { TelemetryDashboardPage } from "@/pages/public/TelemetryDashboardPage";
+import { TermsPage } from "@/pages/public/TermsPage";
 import { VehicleUpdatePage } from "@/pages/public/VehicleUpdatePage";
 import { VehicleDetailsPage } from "@/pages/public/VehicleDetailsPage";
 import { LoginPage } from "@/pages/admin/LoginPage";
@@ -24,6 +26,7 @@ import { ProfilePage } from "@/pages/admin/ProfilePage";
 import { ForgotPasswordPage } from "@/pages/admin/ForgotPasswordPage";
 import { ResetPasswordPage } from "@/pages/admin/ResetPasswordPage";
 import { AdminInventory } from "@/pages/admin/AdminInventory";
+import { AdminProspectEditorPage } from "@/pages/admin/AdminProspectEditorPage";
 import { AdminUsers } from "@/pages/admin/AdminUsers";
 import { AdminProspectsPage } from "@/pages/admin/AdminProspectsPage";
 import { TelemetryInboxPage } from "@/pages/admin/TelemetryInboxPage";
@@ -80,6 +83,8 @@ export function App() {
           <Route path="investor-prospectus" element={<InvestorProspectusPage />} />
           <Route path="contact" element={<ContactPage />} />
           <Route path="journal" element={<JournalPage />} />
+          <Route path="privacy" element={<PrivacyPage />} />
+          <Route path="terms" element={<TermsPage />} />
         </Route>
         <Route path="updates/:slug" element={<VehicleUpdatePage />} />
         <Route
@@ -110,6 +115,7 @@ export function App() {
               element={<AdminInventory />}
             />
             <Route path="prospects" element={<AdminProspectsPage />} />
+            <Route path="prospects/:prospectId" element={<AdminProspectEditorPage />} />
             <Route path="users" element={<AdminUsers />} />
             <Route
               path="expenses"
