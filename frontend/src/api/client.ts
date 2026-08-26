@@ -10,6 +10,8 @@ import type {
   MirageAIAnalysis,
   MirageAIVehicleDraft,
   MetricSummary,
+  ProspectReport,
+  ProspectReportInput,
 } from "@/types/fleet";
 
 const API_BASE_URL =
@@ -202,6 +204,18 @@ export async function importTelemetrySession(
 }
 export async function deleteTelemetrySession(sessionId: string): Promise<void> {
   await request<void>(`/telemetry-sessions/${sessionId}`, { method: "DELETE" });
+}
+export async function listProspects(): Promise<ProspectReport[]> {
+  return request<ProspectReport[]>("/prospects");
+}
+export async function createProspect(input: ProspectReportInput): Promise<ProspectReport> {
+  return request<ProspectReport>("/prospects", { method: "POST", body: JSON.stringify(input) });
+}
+export async function updateProspect(id: string, input: ProspectReportInput): Promise<ProspectReport> {
+  return request<ProspectReport>(`/prospects/${id}`, { method: "PUT", body: JSON.stringify(input) });
+}
+export async function deleteProspect(id: string): Promise<void> {
+  await request<void>(`/prospects/${id}`, { method: "DELETE" });
 }
 export async function analyzeTelemetry(input: { vehicle: MirageAIVehicleDraft; sessionLabel: string; startedAt: string; durationMs: number; samples: number; obdRequests: number; obdErrors: number; source: string; metrics: MetricSummary[] }): Promise<MirageAIAnalysis> {
   return request<MirageAIAnalysis>("/mirage-ai/analyze", { method: "POST", body: JSON.stringify(input) });

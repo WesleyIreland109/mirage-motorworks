@@ -25,6 +25,7 @@ import { ForgotPasswordPage } from "@/pages/admin/ForgotPasswordPage";
 import { ResetPasswordPage } from "@/pages/admin/ResetPasswordPage";
 import { AdminInventory } from "@/pages/admin/AdminInventory";
 import { AdminUsers } from "@/pages/admin/AdminUsers";
+import { AdminProspectsPage } from "@/pages/admin/AdminProspectsPage";
 import { TelemetryInboxPage } from "@/pages/admin/TelemetryInboxPage";
 import { RequireAuth } from "@/components/RequireAuth";
 import { useQuery } from "@tanstack/react-query";
@@ -108,6 +109,7 @@ export function App() {
               path="inventory"
               element={<AdminInventory />}
             />
+            <Route path="prospects" element={<AdminProspectsPage />} />
             <Route path="users" element={<AdminUsers />} />
             <Route
               path="expenses"

@@ -33,11 +33,11 @@ fun main() {
     auth.bootstrapAdmin(config.bootstrapAdminEmail, config.bootstrapAdminPassword)
 
     embeddedServer(Netty, port = config.port, host = "0.0.0.0") {
-        module(config, VehicleRepository(database), auth, FleetRepository(database), TelemetryRepository(database))
+        module(config, VehicleRepository(database), auth, FleetRepository(database), TelemetryRepository(database), ProspectRepository(database))
     }.start(wait = true)
 }
 
-fun Application.module(config: AppConfig, vehicles: VehicleRepository, auth: AuthRepository, fleet: FleetRepository, telemetry: TelemetryRepository) {
+fun Application.module(config: AppConfig, vehicles: VehicleRepository, auth: AuthRepository, fleet: FleetRepository, telemetry: TelemetryRepository, prospects: ProspectRepository) {
     val authLimiter = AuthRateLimiter()
     val emailService = EmailService(config)
     val mirageAI = MirageAIService(config)
@@ -316,6 +316,45 @@ fun Application.module(config: AppConfig, vehicles: VehicleRepository, auth: Aut
                 val access = runCatching { call.receive<PublishReportRequest>() }.getOrDefault(PublishReportRequest())
                 val report = runCatching { telemetry.publish(user.id, call.parameters["id"].orEmpty(), access) }.getOrNull()
                 if (report == null) call.respond(HttpStatusCode.NotFound, mapOf("message" to "Draft report not found")) else call.respond(report)
+            }
+        }
+
+        route("/api/prospects") {
+            get {
+                val user = call.authenticatedUser(auth) ?: return@get
+                if (user.role != "admin") {
+                    call.respond(HttpStatusCode.Forbidden, mapOf("message" to "Administrator access required"))
+                    return@get
+                }
+                call.respond(prospects.list())
+            }
+            post {
+                val user = call.authenticatedUser(auth) ?: return@post
+                if (user.role != "admin") {
+                    call.respond(HttpStatusCode.Forbidden, mapOf("message" to "Administrator access required"))
+                    return@post
+                }
+                runCatching { prospects.create(user.id, call.receive<ProspectReportInput>()) }
+                    .onSuccess { call.respond(HttpStatusCode.Created, it) }
+                    .onFailure { call.respond(HttpStatusCode.BadRequest, mapOf("message" to "Check the prospect link, vehicle details, and inspection notes.")) }
+            }
+            put("/{id}") {
+                val user = call.authenticatedUser(auth) ?: return@put
+                if (user.role != "admin") {
+                    call.respond(HttpStatusCode.Forbidden, mapOf("message" to "Administrator access required"))
+                    return@put
+                }
+                val prospect = runCatching { prospects.update(call.parameters["id"].orEmpty(), call.receive<ProspectReportInput>()) }.getOrNull()
+                if (prospect == null) call.respond(HttpStatusCode.NotFound, mapOf("message" to "Prospect not found")) else call.respond(prospect)
+            }
+            delete("/{id}") {
+                val user = call.authenticatedUser(auth) ?: return@delete
+                if (user.role != "admin") {
+                    call.respond(HttpStatusCode.Forbidden, mapOf("message" to "Administrator access required"))
+                    return@delete
+                }
+                if (prospects.delete(call.parameters["id"].orEmpty())) call.respond(HttpStatusCode.NoContent)
+                else call.respond(HttpStatusCode.NotFound, mapOf("message" to "Prospect not found"))
             }
         }
 

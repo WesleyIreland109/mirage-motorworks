@@ -12,6 +12,7 @@ import {
   BadgeDollarSign,
   Users,
   RadioTower,
+  SearchCheck,
 } from "lucide-react";
 import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -28,6 +29,7 @@ const sharedNav = [
   { to: "/admin/settings", label: "Profile", icon: Settings },
 ];
 const adminNav = [
+  { to: "/admin/prospects", label: "Prospects", icon: SearchCheck },
   { to: "/admin/users", label: "Users", icon: Users },
   { to: "/admin/flips", label: "Flips", icon: BadgeDollarSign },
   { to: "/admin/inventory", label: "Public Inventory", icon: Car },
