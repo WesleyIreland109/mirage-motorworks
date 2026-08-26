@@ -1,4 +1,4 @@
-import { Mail, Menu, X } from "lucide-react";
+import { FileText, Mail, Menu, X } from "lucide-react";
 import { useState } from "react";
 import { Link, NavLink, Outlet } from "react-router-dom";
 
@@ -115,6 +115,9 @@ export function PublicLayout() {
             <Link to="/telemetry-dashboard" className="hover:text-white">
               Telemetry
             </Link>
+            <a href="/resources/used-car-buyer-checklist.pdf" className="inline-flex items-center gap-2 hover:text-white">
+              <FileText size={15} /> Buyer Checklist
+            </a>
             <a href="mailto:wesley@miragemw.com" className="inline-flex items-center gap-2 hover:text-white">
               <Mail size={15} /> wesley@miragemw.com
             </a>

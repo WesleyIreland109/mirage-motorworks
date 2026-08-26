@@ -2,6 +2,8 @@ import {
   Activity,
   ArrowRight,
   ClipboardCheck,
+  Download,
+  FileText,
   Gauge,
   PackageCheck,
   RadioTower,
@@ -174,6 +176,33 @@ export function HomePage() {
               );
             })}
           </div>
+        </div>
+      </section>
+
+      <section className="mx-auto max-w-7xl px-5 pb-24">
+        <div className="grid gap-8 border border-white/[0.06] bg-mirage-secondary p-6 md:grid-cols-[1fr_auto] md:items-center md:p-8">
+          <div className="flex gap-5">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center border border-mirage-cyan/30 bg-mirage-cyan/10 text-mirage-cyan">
+              <FileText size={22} />
+            </div>
+            <div>
+              <p className="text-sm font-semibold uppercase tracking-[0.28em] text-mirage-cyan">
+                Buyer Toolkit
+              </p>
+              <h2 className="mt-3 text-3xl font-bold text-white">
+                Used car inspection checklist.
+              </h2>
+              <p className="mt-3 max-w-2xl text-sm leading-7 text-mirage-muted">
+                A printable, high-level walkaround and test-drive guide for
+                anyone looking at a used car before they hand over money.
+              </p>
+            </div>
+          </div>
+          <Button asChild variant="secondary">
+            <a href="/resources/used-car-buyer-checklist.pdf">
+              Download PDF <Download size={17} />
+            </a>
+          </Button>
         </div>
       </section>
 
