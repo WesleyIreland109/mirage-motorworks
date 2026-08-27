@@ -39,7 +39,7 @@ export interface FleetVehicle {
   targetSalePriceCents?: number;
   readiness: number;
   tasks: MaintenanceTask[];
-  accessRole: "owner" | "viewer" | "editor";
+  accessRole: "owner" | "viewer" | "editor" | "admin";
   shares: FleetVehicleShare[];
 }
 export interface FleetVehicleInput {

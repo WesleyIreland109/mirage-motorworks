@@ -51,7 +51,7 @@ export function FleetVehicleControls({ vehicle }: { vehicle: FleetVehicle }) {
   const [acquisitionPrice, setAcquisitionPrice] = useState(centsToDollars(vehicle.acquisitionPriceCents));
   const [targetPrice, setTargetPrice] = useState(centsToDollars(vehicle.targetSalePriceCents));
   const [error, setError] = useState("");
-  const isOwner = (vehicle.accessRole ?? "owner") === "owner";
+  const canManageVehicle = ["owner", "admin"].includes(vehicle.accessRole ?? "owner");
 
   const save = useMutation({
     mutationFn: () =>
@@ -79,7 +79,7 @@ export function FleetVehicleControls({ vehicle }: { vehicle: FleetVehicle }) {
     value: FleetVehicleUpdate[Key],
   ) => setForm((current) => ({ ...current, [key]: value }));
 
-  if (!isOwner) {
+  if (!canManageVehicle) {
     return (
       <p className="border border-white/[.06] bg-white/[.025] p-4 text-sm text-mirage-muted">
         This vehicle is shared with you. Only the owner can edit, move, or

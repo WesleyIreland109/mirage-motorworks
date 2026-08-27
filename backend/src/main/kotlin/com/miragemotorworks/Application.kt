@@ -236,7 +236,7 @@ fun Application.module(config: AppConfig, vehicles: VehicleRepository, auth: Aut
         route("/api/fleet") {
             get {
                 val user = call.authenticatedUser(auth) ?: return@get
-                call.respond(fleet.list(user.id))
+                call.respond(fleet.list(user.id, user.role == "admin"))
             }
             post {
                 val user = call.authenticatedUser(auth) ?: return@post
@@ -246,18 +246,18 @@ fun Application.module(config: AppConfig, vehicles: VehicleRepository, auth: Aut
             }
             put("/{id}") {
                 val user = call.authenticatedUser(auth) ?: return@put
-                val vehicle = runCatching { fleet.updateVehicle(user.id, call.parameters["id"].orEmpty(), call.receive<FleetVehicleUpdate>()) }.getOrNull()
+                val vehicle = runCatching { fleet.updateVehicle(user.id, call.parameters["id"].orEmpty(), call.receive<FleetVehicleUpdate>(), user.role == "admin") }.getOrNull()
                 if (vehicle == null) call.respond(HttpStatusCode.NotFound, mapOf("message" to "Vehicle not found")) else call.respond(vehicle)
             }
             delete("/{id}") {
                 val user = call.authenticatedUser(auth) ?: return@delete
-                val deleted = runCatching { fleet.deleteVehicle(user.id, call.parameters["id"].orEmpty()) }.getOrDefault(false)
+                val deleted = runCatching { fleet.deleteVehicle(user.id, call.parameters["id"].orEmpty(), user.role == "admin") }.getOrDefault(false)
                 if (deleted) call.respond(HttpStatusCode.NoContent) else call.respond(HttpStatusCode.NotFound, mapOf("message" to "Vehicle not found"))
             }
             put("/tasks/{id}") {
                 val user = call.authenticatedUser(auth) ?: return@put
                 val taskId = call.parameters["id"].orEmpty()
-                val vehicle = runCatching { fleet.updateTask(user.id, taskId, call.receive<TaskUpdate>()) }.getOrNull()
+                val vehicle = runCatching { fleet.updateTask(user.id, taskId, call.receive<TaskUpdate>(), user.role == "admin") }.getOrNull()
                 if (vehicle == null) call.respond(HttpStatusCode.NotFound, mapOf("message" to "Task not found")) else call.respond(vehicle)
             }
             post("/{id}/shares") {
@@ -280,41 +280,41 @@ fun Application.module(config: AppConfig, vehicles: VehicleRepository, auth: Aut
         route("/api/telemetry-sessions") {
             get {
                 val user = call.authenticatedUser(auth) ?: return@get
-                call.respond(telemetry.list(user.id, call.request.queryParameters["vehicleId"]))
+                call.respond(telemetry.list(user.id, call.request.queryParameters["vehicleId"], user.role == "admin"))
             }
             post {
                 val user = call.authenticatedUser(auth) ?: return@post
-                runCatching { telemetry.import(user.id, call.receive<SessionImport>()) }
+                runCatching { telemetry.import(user.id, call.receive<SessionImport>(), user.role == "admin") }
                     .onSuccess { call.respond(HttpStatusCode.Created, it) }
                     .onFailure { call.respond(HttpStatusCode.BadRequest, mapOf("message" to "Invalid or unauthorized session import")) }
             }
             put("/{id}") {
                 val user = call.authenticatedUser(auth) ?: return@put
-                val session = runCatching { telemetry.update(user.id, call.parameters["id"].orEmpty(), call.receive<TelemetrySessionUpdate>()) }.getOrNull()
+                val session = runCatching { telemetry.update(user.id, call.parameters["id"].orEmpty(), call.receive<TelemetrySessionUpdate>(), user.role == "admin") }.getOrNull()
                 if (session == null) call.respond(HttpStatusCode.NotFound, mapOf("message" to "Telemetry session not found")) else call.respond(session)
             }
             delete("/{id}") {
                 val user = call.authenticatedUser(auth) ?: return@delete
-                val deleted = runCatching { telemetry.delete(user.id, call.parameters["id"].orEmpty()) }.getOrDefault(false)
+                val deleted = runCatching { telemetry.delete(user.id, call.parameters["id"].orEmpty(), user.role == "admin") }.getOrDefault(false)
                 if (deleted) call.respond(HttpStatusCode.NoContent)
                 else call.respond(HttpStatusCode.NotFound, mapOf("message" to "Telemetry session not found"))
             }
             get("/{id}/report") {
                 val user = call.authenticatedUser(auth) ?: return@get
-                val report = telemetry.report(user.id, call.parameters["id"].orEmpty())
+                val report = telemetry.report(user.id, call.parameters["id"].orEmpty(), user.role == "admin")
                 if (report == null) call.respond(HttpStatusCode.NotFound, mapOf("message" to "Drive report not found")) else call.respond(report)
             }
             put("/{id}/report") {
                 val user = call.authenticatedUser(auth) ?: return@put
                 val id = call.parameters["id"].orEmpty()
-                runCatching { telemetry.saveReport(user.id, id, call.receive<ReportDraft>()) }
+                runCatching { telemetry.saveReport(user.id, id, call.receive<ReportDraft>(), user.role == "admin") }
                     .onSuccess { call.respond(it) }
                     .onFailure { call.respond(HttpStatusCode.BadRequest, mapOf("message" to "Unable to save report")) }
             }
             post("/{id}/publish") {
                 val user = call.authenticatedUser(auth) ?: return@post
                 val access = runCatching { call.receive<PublishReportRequest>() }.getOrDefault(PublishReportRequest())
-                val report = runCatching { telemetry.publish(user.id, call.parameters["id"].orEmpty(), access) }.getOrNull()
+                val report = runCatching { telemetry.publish(user.id, call.parameters["id"].orEmpty(), access, user.role == "admin") }.getOrNull()
                 if (report == null) call.respond(HttpStatusCode.NotFound, mapOf("message" to "Draft report not found")) else call.respond(report)
             }
         }

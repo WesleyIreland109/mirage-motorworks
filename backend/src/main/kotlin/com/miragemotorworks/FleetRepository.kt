@@ -7,15 +7,21 @@ import java.time.Instant
 import java.util.UUID
 
 class FleetRepository(private val database: Database) {
-    fun list(userId: String): List<FleetVehicle> = database.withConnection { connection ->
+    fun list(userId: String, isAdmin: Boolean = false): List<FleetVehicle> = database.withConnection { connection ->
         connection.prepareStatement(
-            """SELECT v.*, CASE WHEN v.user_id = ?::uuid THEN 'owner' ELSE s.permission END AS access_role
+            """SELECT v.*,
+            CASE
+                WHEN v.user_id = ?::uuid THEN 'owner'
+                WHEN ? AND v.purpose <> 'personal' THEN 'admin'
+                ELSE s.permission
+            END AS access_role
             FROM owned_vehicles v
             LEFT JOIN owned_vehicle_shares s ON s.vehicle_id = v.id AND s.user_id = ?::uuid
-            WHERE v.user_id = ?::uuid OR s.user_id = ?::uuid
+            WHERE v.user_id = ?::uuid OR s.user_id = ?::uuid OR (? AND v.purpose <> 'personal')
             ORDER BY v.created_at"""
         ).use { statement ->
-            statement.setString(1, userId); statement.setString(2, userId); statement.setString(3, userId); statement.setString(4, userId)
+            statement.setString(1, userId); statement.setBoolean(2, isAdmin); statement.setString(3, userId)
+            statement.setString(4, userId); statement.setString(5, userId); statement.setBoolean(6, isAdmin)
             statement.executeQuery().use { result -> buildList { while (result.next()) add(result.toFleetVehicle(connection)) } }
         }
     }
@@ -63,7 +69,7 @@ class FleetRepository(private val database: Database) {
         }
     }
 
-    fun updateVehicle(userId: String, vehicleId: String, update: FleetVehicleUpdate): FleetVehicle? {
+    fun updateVehicle(userId: String, vehicleId: String, update: FleetVehicleUpdate, isAdmin: Boolean = false): FleetVehicle? {
         require(update.year in 1950..2050 && update.make.isNotBlank() && update.model.isNotBlank() && update.mileage >= 0)
         require(update.purpose in setOf("personal", "working_on", "flip"))
         return database.withConnection { connection ->
@@ -72,7 +78,7 @@ class FleetRepository(private val database: Database) {
                 year = ?, make = ?, model = ?, nickname = ?, trim = ?, mileage = ?, vin = ?, primary_use = ?,
                 annual_mileage = ?, notes = ?, purpose = ?, owner_name = ?,
                 acquisition_price_cents = ?, target_sale_price_cents = ?, updated_at = NOW()
-                WHERE id = ?::uuid AND user_id = ?::uuid"""
+                WHERE id = ?::uuid AND (user_id = ?::uuid OR (? AND purpose <> 'personal' AND ? <> 'personal'))"""
             ).use { statement ->
                 statement.setInt(1, update.year)
                 statement.setString(2, update.make.trim())
@@ -90,21 +96,24 @@ class FleetRepository(private val database: Database) {
                 if (update.targetSalePriceCents == null) statement.setNull(14, java.sql.Types.BIGINT) else statement.setLong(14, update.targetSalePriceCents)
                 statement.setString(15, vehicleId)
                 statement.setString(16, userId)
+                statement.setBoolean(17, isAdmin)
+                statement.setString(18, update.purpose)
                 if (statement.executeUpdate() == 0) return@withConnection null
             }
-            findOwned(connection, userId, vehicleId)
+            findAccessible(connection, userId, vehicleId, isAdmin)
         }
     }
 
-    fun deleteVehicle(userId: String, vehicleId: String): Boolean = database.withConnection { connection ->
-        connection.prepareStatement("DELETE FROM owned_vehicles WHERE id = ?::uuid AND user_id = ?::uuid").use { statement ->
+    fun deleteVehicle(userId: String, vehicleId: String, isAdmin: Boolean = false): Boolean = database.withConnection { connection ->
+        connection.prepareStatement("DELETE FROM owned_vehicles WHERE id = ?::uuid AND (user_id = ?::uuid OR (? AND purpose <> 'personal'))").use { statement ->
             statement.setString(1, vehicleId)
             statement.setString(2, userId)
+            statement.setBoolean(3, isAdmin)
             statement.executeUpdate() > 0
         }
     }
 
-    fun updateTask(userId: String, taskId: String, update: TaskUpdate): FleetVehicle? {
+    fun updateTask(userId: String, taskId: String, update: TaskUpdate, isAdmin: Boolean = false): FleetVehicle? {
         require(update.status in setOf("suggested", "accepted", "in_progress", "completed", "deferred"))
         return database.withConnection { connection ->
             connection.autoCommit = false
@@ -113,9 +122,9 @@ class FleetRepository(private val database: Database) {
                     """SELECT t.id, t.vehicle_id, t.title, v.mileage FROM maintenance_tasks t
                     JOIN owned_vehicles v ON v.id = t.vehicle_id
                     LEFT JOIN owned_vehicle_shares s ON s.vehicle_id = v.id AND s.user_id = ?::uuid
-                    WHERE t.id = ?::uuid AND (v.user_id = ?::uuid OR s.permission = 'editor')"""
+                    WHERE t.id = ?::uuid AND (v.user_id = ?::uuid OR s.permission = 'editor' OR (? AND v.purpose <> 'personal'))"""
                 ).use { statement ->
-                    statement.setString(1, userId); statement.setString(2, taskId); statement.setString(3, userId)
+                    statement.setString(1, userId); statement.setString(2, taskId); statement.setString(3, userId); statement.setBoolean(4, isAdmin)
                     statement.executeQuery().use { result ->
                         if (!result.next()) null else arrayOf(result.getString("vehicle_id"), result.getString("title"), result.getString("mileage"))
                     }
@@ -136,7 +145,7 @@ class FleetRepository(private val database: Database) {
                     statement.setString(4, task[1]); statement.setInt(5, update.completedMileage ?: task[2].toInt())
                     statement.setString(6, update.notes ?: ""); statement.executeUpdate()
                 }
-                connection.commit(); findAccessible(connection, userId, task[0])
+                connection.commit(); findAccessible(connection, userId, task[0], isAdmin)
             } catch (exception: Exception) { connection.rollback(); throw exception } finally { connection.autoCommit = true }
         }
     }
@@ -203,13 +212,19 @@ class FleetRepository(private val database: Database) {
         "SELECT *, 'owner' AS access_role FROM owned_vehicles WHERE id = ?::uuid AND user_id = ?::uuid"
     ).use { statement -> statement.setString(1, id); statement.setString(2, userId); statement.executeQuery().use { if (it.next()) it.toFleetVehicle(connection) else null } }
 
-    private fun findAccessible(connection: Connection, userId: String, id: String): FleetVehicle? = connection.prepareStatement(
-        """SELECT v.*, CASE WHEN v.user_id = ?::uuid THEN 'owner' ELSE s.permission END AS access_role
+    private fun findAccessible(connection: Connection, userId: String, id: String, isAdmin: Boolean = false): FleetVehicle? = connection.prepareStatement(
+        """SELECT v.*,
+        CASE
+            WHEN v.user_id = ?::uuid THEN 'owner'
+            WHEN ? AND v.purpose <> 'personal' THEN 'admin'
+            ELSE s.permission
+        END AS access_role
         FROM owned_vehicles v
         LEFT JOIN owned_vehicle_shares s ON s.vehicle_id = v.id AND s.user_id = ?::uuid
-        WHERE v.id = ?::uuid AND (v.user_id = ?::uuid OR s.user_id = ?::uuid)"""
+        WHERE v.id = ?::uuid AND (v.user_id = ?::uuid OR s.user_id = ?::uuid OR (? AND v.purpose <> 'personal'))"""
     ).use { statement ->
-        statement.setString(1, userId); statement.setString(2, userId); statement.setString(3, id); statement.setString(4, userId); statement.setString(5, userId)
+        statement.setString(1, userId); statement.setBoolean(2, isAdmin); statement.setString(3, userId); statement.setString(4, id)
+        statement.setString(5, userId); statement.setString(6, userId); statement.setBoolean(7, isAdmin)
         statement.executeQuery().use { if (it.next()) it.toFleetVehicle(connection) else null }
     }
 
