@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { ExternalLink, Plus, SearchCheck } from "lucide-react";
+import { Download, ExternalLink, Plus, SearchCheck } from "lucide-react";
 
 import { listProspects } from "@/api/client";
 import { Button } from "@/components/ui/button";
@@ -31,6 +31,11 @@ export function AdminProspectsPage() {
           <Link to="/admin/prospects/new">
             <Plus size={16} /> New prospect
           </Link>
+        </Button>
+        <Button asChild variant="secondary">
+          <a href="/resources/employee-prospect-worksheet.pdf">
+            <Download size={16} /> Print worksheet
+          </a>
         </Button>
       </div>
 
