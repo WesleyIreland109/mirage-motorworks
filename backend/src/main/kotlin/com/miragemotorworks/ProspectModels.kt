@@ -32,6 +32,8 @@ data class ProspectReportInput(
     val vin: String? = null,
     val status: String = "new",
     val summary: String = "",
+    val auctionStatus: String = "unknown",
+    val auctionEndsAt: String? = null,
     val checklist: List<ProspectChecklistItem> = emptyList(),
     val obd: ProspectObdSnapshot = ProspectObdSnapshot(),
     val estimatedRepairCents: Long? = null,
@@ -52,6 +54,8 @@ data class ProspectReport(
     val vin: String? = null,
     val status: String,
     val summary: String,
+    val auctionStatus: String = "unknown",
+    val auctionEndsAt: String? = null,
     val checklist: List<ProspectChecklistItem>,
     val obd: ProspectObdSnapshot,
     val estimatedRepairCents: Long? = null,
@@ -59,4 +63,28 @@ data class ProspectReport(
     val valueNotes: String,
     val createdAt: String,
     val updatedAt: String
+)
+
+@Serializable
+data class ProspectAIRequest(
+    val prospect: ProspectReportInput
+)
+
+@Serializable
+data class ProspectAIResponse(
+    val vehicleLabel: String? = null,
+    val askingPriceCents: Long? = null,
+    val mileage: Int? = null,
+    val location: String? = null,
+    val sellerName: String? = null,
+    val vin: String? = null,
+    val status: String = "researching",
+    val summary: String = "",
+    val auctionStatus: String = "unknown",
+    val auctionEndsAt: String? = null,
+    val estimatedRepairCents: Long? = null,
+    val recommendedOfferCents: Long? = null,
+    val valueNotes: String = "",
+    val confidence: String = "low",
+    val sourceNotes: List<String> = emptyList()
 )

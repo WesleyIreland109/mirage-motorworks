@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 
 import {
+  analyzeProspect,
   createProspect,
   deleteProspect,
   listProspects,
@@ -23,6 +24,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
   blankProspectForm,
+  centsToDollars,
   dollarsToCents,
   formFromProspect,
   formatMoney,
@@ -45,6 +47,35 @@ const resultLabels: Record<ProspectChecklistResult, string> = {
   not_applicable: "N/A",
 };
 
+function isCarsAndBidsUrl(value: string) {
+  const hostname = runCatchingUrl(value)?.hostname.toLowerCase();
+  return hostname === "carsandbids.com" || hostname?.endsWith(".carsandbids.com") || false;
+}
+
+function runCatchingUrl(value: string) {
+  try {
+    return new URL(value);
+  } catch {
+    return null;
+  }
+}
+
+function labelFromCarsAndBidsUrl(value: string) {
+  const pathname = runCatchingUrl(value)?.pathname ?? "";
+  const slug = pathname.split("/").filter(Boolean).at(-1) ?? "";
+  if (!slug) return "";
+  return slug
+    .split("-")
+    .filter(Boolean)
+    .map((word) => {
+      if (/^rx$/i.test(word)) return "RX";
+      if (/^\d+$/.test(word)) return word;
+      return word.charAt(0).toUpperCase() + word.slice(1);
+    })
+    .join(" ")
+    .replace(/\bRX 7\b/, "RX-7");
+}
+
 export function AdminProspectEditorPage() {
   const { prospectId } = useParams();
   const isNew = prospectId === "new";
@@ -52,6 +83,8 @@ export function AdminProspectEditorPage() {
   const queryClient = useQueryClient();
   const [form, setForm] = useState<ProspectFormState>(blankProspectForm);
   const [message, setMessage] = useState("");
+  const lastAutoAnalyzedUrl = useRef("");
+  const isCarsAndBids = isCarsAndBidsUrl(form.listingUrl);
 
   const { data: prospects = [], isLoading } = useQuery({
     queryKey: ["prospects"],
@@ -81,6 +114,51 @@ export function AdminProspectEditorPage() {
     },
     onError: () => setMessage("Unable to save. Check the listing URL and required vehicle label."),
   });
+
+  const analyzeListing = useMutation({
+    mutationFn: () => analyzeProspect(inputFromProspectForm(form)),
+    onSuccess: (analysis) => {
+      setForm((current) => ({
+        ...current,
+        vehicleLabel: analysis.vehicleLabel || current.vehicleLabel,
+        askingPrice: analysis.askingPriceCents == null ? current.askingPrice : centsToDollars(analysis.askingPriceCents),
+        mileage: analysis.mileage == null ? current.mileage : String(analysis.mileage),
+        location: analysis.location || current.location,
+        sellerName: analysis.sellerName || current.sellerName,
+        vin: analysis.vin || current.vin,
+        status: analysis.status || current.status,
+        summary: analysis.summary || current.summary,
+        auctionStatus: analysis.auctionStatus || current.auctionStatus,
+        auctionEndsAt: analysis.auctionEndsAt || current.auctionEndsAt,
+        estimatedRepair: analysis.estimatedRepairCents == null ? current.estimatedRepair : centsToDollars(analysis.estimatedRepairCents),
+        recommendedOffer: analysis.recommendedOfferCents == null ? current.recommendedOffer : centsToDollars(analysis.recommendedOfferCents),
+        valueNotes: [
+          analysis.valueNotes,
+          analysis.sourceNotes.length ? `Source notes: ${analysis.sourceNotes.join(" ")}` : "",
+          `MirageAI confidence: ${analysis.confidence}`,
+        ].filter(Boolean).join("\n\n") || current.valueNotes,
+      }));
+      setMessage("MirageAI filled a prospect draft. Review it before saving.");
+    },
+    onError: () => setMessage("MirageAI could not analyze that listing right now. Fill the prospect manually for now."),
+  });
+
+  useEffect(() => {
+    if (!isCarsAndBids || !form.listingUrl || analyzeListing.isPending) return;
+    if (lastAutoAnalyzedUrl.current === form.listingUrl) return;
+    lastAutoAnalyzedUrl.current = form.listingUrl;
+    const fallbackLabel = labelFromCarsAndBidsUrl(form.listingUrl);
+    if (fallbackLabel && !form.vehicleLabel.trim()) {
+      setForm((current) => ({
+        ...current,
+        vehicleLabel: current.vehicleLabel.trim() ? current.vehicleLabel : fallbackLabel,
+        status: current.status === "new" ? "auction_live" : current.status,
+        auctionStatus: current.auctionStatus === "unknown" ? "live" : current.auctionStatus,
+      }));
+    }
+    setMessage("Cars & Bids link detected. MirageAI is analyzing the listing...");
+    analyzeListing.mutate();
+  }, [analyzeListing, form.listingUrl, form.vehicleLabel, form.auctionStatus, form.status, isCarsAndBids]);
 
   const removeProspect = useMutation({
     mutationFn: deleteProspect,
@@ -144,9 +222,9 @@ export function AdminProspectEditorPage() {
           <p className="text-sm font-semibold uppercase tracking-[0.24em] text-mirage-cyan">Potential acquisition</p>
           <h1 className="mt-2 text-4xl font-semibold">{isNew ? "New prospect" : form.vehicleLabel}</h1>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-mirage-muted">
-            Use this from a phone while inspecting a car. The structured report
-            stays attached to the listing so Mirage can learn what to buy, what
-            to pass on, and eventually what AI should recommend paying.
+            {isCarsAndBids
+              ? "Cars & Bids mode keeps this focused on online auction data first, then lets MirageAI turn the public listing and staff notes into an editable acquisition target."
+              : "Use this from a phone while inspecting a car. The structured report stays attached to the listing so Mirage can learn what to buy, what to pass on, and eventually what AI should recommend paying."}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -181,8 +259,25 @@ export function AdminProspectEditorPage() {
           <div className="mt-5 grid gap-4 md:grid-cols-2">
             <label className="space-y-2 md:col-span-2">
               <span className="text-xs font-semibold uppercase tracking-[0.18em] text-mirage-muted">Listing URL</span>
-              <Input inputMode="url" placeholder="https://..." value={form.listingUrl} onChange={(event) => setForm({ ...form, listingUrl: event.target.value })} />
+              <div className="grid gap-3 md:grid-cols-[1fr_auto]">
+                <Input inputMode="url" placeholder="https://..." value={form.listingUrl} onChange={(event) => setForm({ ...form, listingUrl: event.target.value })} />
+                <Button
+                  variant="secondary"
+                  disabled={analyzeListing.isPending || !form.listingUrl}
+                  onClick={() => analyzeListing.mutate()}
+                >
+                  <Bot size={16} />
+                  {analyzeListing.isPending ? "Analyzing..." : isCarsAndBids ? "Analyze Cars & Bids" : "Analyze listing"}
+                </Button>
+              </div>
             </label>
+            {isCarsAndBids && (
+              <div className="border border-mirage-cyan/20 bg-mirage-cyan/10 p-4 text-sm leading-6 text-mirage-muted md:col-span-2">
+                Cars & Bids listing detected. MirageAI will prioritize auction title,
+                mileage, location, seller notes, bidding context, visible risk, and
+                margin room before suggesting a conservative Mirage target offer.
+              </div>
+            )}
             <InputBlock label="Vehicle label" value={form.vehicleLabel} placeholder="2013 Camaro 2SS" onChange={(value) => setForm({ ...form, vehicleLabel: value })} />
             <SelectBlock
               label="Status"
@@ -194,6 +289,13 @@ export function AdminProspectEditorPage() {
             <InputBlock label="Mileage" value={form.mileage} placeholder="72500" onChange={(value) => setForm({ ...form, mileage: value })} />
             <InputBlock label="Location" value={form.location} placeholder="Austin, TX" onChange={(value) => setForm({ ...form, location: value })} />
             <InputBlock label="Seller" value={form.sellerName} placeholder="Private seller or dealer" onChange={(value) => setForm({ ...form, sellerName: value })} />
+            <SelectBlock
+              label="Auction status"
+              value={form.auctionStatus}
+              options={[["unknown", "Unknown"], ["live", "Live"], ["ended", "Ended"], ["sold", "Sold"]]}
+              onChange={(value) => setForm({ ...form, auctionStatus: value as ProspectFormState["auctionStatus"] })}
+            />
+            <InputBlock label="Auction ends" value={form.auctionEndsAt} placeholder="2026-08-28T21:00:00Z" onChange={(value) => setForm({ ...form, auctionEndsAt: value })} />
             <label className="space-y-2 md:col-span-2">
               <span className="text-xs font-semibold uppercase tracking-[0.18em] text-mirage-muted">VIN</span>
               <Input placeholder="Optional until confirmed" value={form.vin} onChange={(event) => setForm({ ...form, vin: event.target.value.toUpperCase() })} />
@@ -274,9 +376,9 @@ export function AdminProspectEditorPage() {
                 <h2 className="text-xl font-semibold">Value target</h2>
               </div>
               <p className="mt-2 text-sm leading-6 text-mirage-muted">
-                Manual for now. The intended next step is MirageAI reading
-                listing data, inspection answers, OBD notes, repair estimates,
-                and historical outcomes to suggest a perceived Mirage buy number.
+                Run MirageAI against the listing, staff inspection answers, OBD
+                notes, repair estimates, and margin needs to create an editable
+                Mirage buy target.
               </p>
               <div className="mt-5 grid gap-4 md:grid-cols-2">
                 <InputBlock label="Estimated repairs" value={form.estimatedRepair} placeholder="6500" onChange={(value) => setForm({ ...form, estimatedRepair: value })} />

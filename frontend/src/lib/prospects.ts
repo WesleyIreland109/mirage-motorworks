@@ -1,5 +1,6 @@
 import type {
   ProspectChecklistItem,
+  ProspectAuctionStatus,
   ProspectObdSnapshot,
   ProspectReport,
   ProspectReportInput,
@@ -35,6 +36,9 @@ export const prospectStatusLabels: Record<ProspectStatus, string> = {
   inspecting: "Inspecting",
   review: "Review",
   offer_candidate: "Offer Candidate",
+  auction_live: "Auction Live",
+  auction_ended: "Auction Ended",
+  sold: "Sold",
   declined: "Declined",
   purchased: "Purchased",
 };
@@ -49,6 +53,8 @@ export interface ProspectFormState {
   vin: string;
   status: ProspectStatus;
   summary: string;
+  auctionStatus: ProspectAuctionStatus;
+  auctionEndsAt: string;
   checklist: ProspectChecklistItem[];
   obd: ProspectObdSnapshot;
   estimatedRepair: string;
@@ -67,6 +73,8 @@ export function blankProspectForm(): ProspectFormState {
     vin: "",
     status: "new",
     summary: "",
+    auctionStatus: "unknown",
+    auctionEndsAt: "",
     checklist: prospectChecklistTemplate.map((item) => ({ ...item })),
     obd: { ...emptyProspectObd },
     estimatedRepair: "",
@@ -109,6 +117,8 @@ export function formFromProspect(prospect: ProspectReport): ProspectFormState {
     vin: prospect.vin ?? "",
     status: prospect.status,
     summary: prospect.summary,
+    auctionStatus: prospect.auctionStatus ?? "unknown",
+    auctionEndsAt: prospect.auctionEndsAt ?? "",
     checklist: prospect.checklist.length ? prospect.checklist : prospectChecklistTemplate.map((item) => ({ ...item })),
     obd: { ...emptyProspectObd, ...prospect.obd },
     estimatedRepair: centsToDollars(prospect.estimatedRepairCents),
@@ -128,6 +138,8 @@ export function inputFromProspectForm(form: ProspectFormState): ProspectReportIn
     vin: form.vin || undefined,
     status: form.status,
     summary: form.summary,
+    auctionStatus: form.auctionStatus,
+    auctionEndsAt: form.auctionEndsAt || undefined,
     checklist: form.checklist,
     obd: form.obd,
     estimatedRepairCents: dollarsToCents(form.estimatedRepair),

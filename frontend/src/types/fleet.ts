@@ -111,7 +111,18 @@ export interface MetricAssessment { key: string; referenceLow: number; reference
 export interface MirageAIVehicleDraft { year?: number; make?: string; model?: string; trim?: string; vin?: string; mileage?: number; profileId?: string; }
 export interface MirageAIAnalysis { title: string; overview: string; observations: string[]; suggestions: string[]; vehicle: MirageAIVehicleDraft; }
 
-export type ProspectStatus = "new" | "researching" | "inspecting" | "review" | "offer_candidate" | "declined" | "purchased";
+export type ProspectStatus =
+  | "new"
+  | "researching"
+  | "inspecting"
+  | "review"
+  | "offer_candidate"
+  | "auction_live"
+  | "auction_ended"
+  | "sold"
+  | "declined"
+  | "purchased";
+export type ProspectAuctionStatus = "unknown" | "live" | "ended" | "sold";
 export type ProspectChecklistResult = "pass" | "monitor" | "fail" | "unknown" | "not_applicable";
 
 export interface ProspectChecklistItem {
@@ -143,6 +154,8 @@ export interface ProspectReport {
   vin?: string;
   status: ProspectStatus;
   summary: string;
+  auctionStatus: ProspectAuctionStatus;
+  auctionEndsAt?: string;
   checklist: ProspectChecklistItem[];
   obd: ProspectObdSnapshot;
   estimatedRepairCents?: number;
@@ -150,6 +163,24 @@ export interface ProspectReport {
   valueNotes: string;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface ProspectAIAnalysis {
+  vehicleLabel?: string;
+  askingPriceCents?: number;
+  mileage?: number;
+  location?: string;
+  sellerName?: string;
+  vin?: string;
+  status: ProspectStatus;
+  summary: string;
+  auctionStatus: ProspectAuctionStatus;
+  auctionEndsAt?: string;
+  estimatedRepairCents?: number;
+  recommendedOfferCents?: number;
+  valueNotes: string;
+  confidence: "low" | "medium" | "high";
+  sourceNotes: string[];
 }
 
 export type ProspectReportInput = Omit<ProspectReport, "id" | "createdByUserId" | "createdAt" | "updatedAt">;

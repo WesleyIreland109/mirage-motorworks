@@ -10,6 +10,7 @@ import type {
   MirageAIAnalysis,
   MirageAIVehicleDraft,
   MetricSummary,
+  ProspectAIAnalysis,
   ProspectReport,
   ProspectReportInput,
 } from "@/types/fleet";
@@ -106,6 +107,9 @@ export async function logout(): Promise<void> {
 export async function listUsers(): Promise<AuthUser[]> {
   return request<AuthUser[]>("/admin/users");
 }
+export async function listShareableUsers(): Promise<AuthUser[]> {
+  return request<AuthUser[]>("/users");
+}
 
 export async function promoteUser(userId: string): Promise<AuthUser> {
   return request<AuthUser>(`/admin/users/${userId}/promote`, { method: "PUT" });
@@ -171,12 +175,12 @@ export async function getDriveReportForSession(
 }
 export async function shareFleetVehicle(
   vehicleId: string,
-  email: string,
+  userId: string,
   permission: "viewer" | "editor" = "editor",
 ): Promise<FleetVehicle> {
   return request<FleetVehicle>(`/fleet/${vehicleId}/shares`, {
     method: "POST",
-    body: JSON.stringify({ email, permission }),
+    body: JSON.stringify({ userId, permission }),
   });
 }
 export async function removeFleetVehicleShare(
@@ -216,6 +220,12 @@ export async function updateProspect(id: string, input: ProspectReportInput): Pr
 }
 export async function deleteProspect(id: string): Promise<void> {
   await request<void>(`/prospects/${id}`, { method: "DELETE" });
+}
+export async function analyzeProspect(input: ProspectReportInput): Promise<ProspectAIAnalysis> {
+  return request<ProspectAIAnalysis>("/prospects/analyze", {
+    method: "POST",
+    body: JSON.stringify({ prospect: input }),
+  });
 }
 export async function analyzeTelemetry(input: { vehicle: MirageAIVehicleDraft; sessionLabel: string; startedAt: string; durationMs: number; samples: number; obdRequests: number; obdErrors: number; source: string; metrics: MetricSummary[] }): Promise<MirageAIAnalysis> {
   return request<MirageAIAnalysis>("/mirage-ai/analyze", { method: "POST", body: JSON.stringify(input) });

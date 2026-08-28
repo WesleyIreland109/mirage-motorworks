@@ -151,8 +151,8 @@ class FleetRepository(private val database: Database) {
     }
 
     fun shareVehicle(userId: String, vehicleId: String, request: FleetShareRequest): FleetVehicle? {
-        val email = request.email.trim().lowercase()
-        require(email.matches(Regex("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$")))
+        val targetUserId = request.userId.trim()
+        require(targetUserId.isNotBlank())
         require(request.permission in setOf("viewer", "editor"))
         return database.withConnection { connection ->
             connection.autoCommit = false
@@ -164,12 +164,13 @@ class FleetRepository(private val database: Database) {
                     statement.executeQuery().use { it.next() }
                 }
                 if (!ownerExists) return@withConnection null
-                val targetUserId = connection.prepareStatement(
-                    "SELECT id FROM users WHERE lower(email) = lower(?)"
+                val targetExists = connection.prepareStatement(
+                    "SELECT 1 FROM users WHERE id = ?::uuid"
                 ).use { statement ->
-                    statement.setString(1, email)
-                    statement.executeQuery().use { if (it.next()) it.getString("id") else null }
-                } ?: throw IllegalArgumentException("Shared user must have an account")
+                    statement.setString(1, targetUserId)
+                    statement.executeQuery().use { it.next() }
+                }
+                require(targetExists)
                 require(targetUserId != userId)
                 connection.prepareStatement(
                     """INSERT INTO owned_vehicle_shares (id, vehicle_id, user_id, invited_by_user_id, permission)

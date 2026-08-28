@@ -233,6 +233,13 @@ fun Application.module(config: AppConfig, vehicles: VehicleRepository, auth: Aut
             }
         }
 
+        route("/api/users") {
+            get {
+                call.authenticatedUser(auth) ?: return@get
+                call.respond(auth.listUsers())
+            }
+        }
+
         route("/api/fleet") {
             get {
                 val user = call.authenticatedUser(auth) ?: return@get
@@ -268,7 +275,7 @@ fun Application.module(config: AppConfig, vehicles: VehicleRepository, auth: Aut
                         if (it == null) call.respond(HttpStatusCode.NotFound, mapOf("message" to "Vehicle not found"))
                         else call.respond(HttpStatusCode.Created, it)
                     }
-                    .onFailure { call.respond(HttpStatusCode.BadRequest, mapOf("message" to "Share with an existing GarageOS user email.")) }
+                    .onFailure { call.respond(HttpStatusCode.BadRequest, mapOf("message" to "Select an existing GarageOS user to share this vehicle.")) }
             }
             delete("/{vehicleId}/shares/{shareId}") {
                 val user = call.authenticatedUser(auth) ?: return@delete
@@ -337,6 +344,26 @@ fun Application.module(config: AppConfig, vehicles: VehicleRepository, auth: Aut
                 runCatching { prospects.create(user.id, call.receive<ProspectReportInput>()) }
                     .onSuccess { call.respond(HttpStatusCode.Created, it) }
                     .onFailure { call.respond(HttpStatusCode.BadRequest, mapOf("message" to "Check the prospect link, vehicle details, and inspection notes.")) }
+            }
+            post("/analyze") {
+                val user = call.authenticatedUser(auth) ?: return@post
+                if (user.role != "admin") {
+                    call.respond(HttpStatusCode.Forbidden, mapOf("message" to "Administrator access required"))
+                    return@post
+                }
+                val rateKey = "prospect-ai:${user.id}"
+                if (!authLimiter.allow(rateKey)) {
+                    call.respond(HttpStatusCode.TooManyRequests, mapOf("message" to "MirageAI needs a moment before another prospect analysis."))
+                    return@post
+                }
+                val input = runCatching { call.receive<ProspectAIRequest>() }.getOrNull()
+                if (input == null || input.prospect.listingUrl.trim().length !in 8..2000) {
+                    call.respond(HttpStatusCode.BadRequest, mapOf("message" to "Add a valid listing URL before running MirageAI."))
+                    return@post
+                }
+                val result = mirageAI.analyzeProspect(input)
+                if (result == null) call.respond(HttpStatusCode.ServiceUnavailable, mapOf("message" to "MirageAI is not configured or temporarily unavailable"))
+                else call.respond(result)
             }
             put("/{id}") {
                 val user = call.authenticatedUser(auth) ?: return@put

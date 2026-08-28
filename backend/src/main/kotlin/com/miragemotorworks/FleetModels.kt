@@ -92,4 +92,4 @@ data class FleetVehicle(
 data class TaskUpdate(val status: String, val notes: String? = null, val completedMileage: Int? = null)
 
 @Serializable
-data class FleetShareRequest(val email: String, val permission: String = "editor")
+data class FleetShareRequest(val userId: String, val permission: String = "editor")

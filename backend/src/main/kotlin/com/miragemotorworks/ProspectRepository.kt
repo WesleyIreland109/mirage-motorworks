@@ -7,7 +7,8 @@ import java.util.UUID
 
 class ProspectRepository(private val database: Database) {
     private val json = Json { ignoreUnknownKeys = true }
-    private val allowedStatuses = setOf("new", "researching", "inspecting", "review", "offer_candidate", "declined", "purchased")
+    private val allowedStatuses = setOf("new", "researching", "inspecting", "review", "offer_candidate", "auction_live", "auction_ended", "sold", "declined", "purchased")
+    private val allowedAuctionStatuses = setOf("unknown", "live", "ended", "sold")
     private val allowedResults = setOf("pass", "monitor", "fail", "unknown", "not_applicable")
     private val allowedObdStates = setOf("clear", "codes_present", "not_scanned", "unknown")
     private val allowedMonitorStates = setOf("ready", "not_ready", "mixed", "unknown")
@@ -25,9 +26,9 @@ class ProspectRepository(private val database: Database) {
             connection.prepareStatement(
                 """INSERT INTO prospect_reports (
                     id, created_by_user_id, listing_url, vehicle_label, asking_price_cents, mileage,
-                    location, seller_name, vin, status, summary, checklist_json, obd_json,
+                    location, seller_name, vin, status, summary, auction_status, auction_ends_at, checklist_json, obd_json,
                     estimated_repair_cents, recommended_offer_cents, value_notes
-                ) VALUES (?, ?::uuid, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?::jsonb, ?::jsonb, ?, ?, ?)
+                ) VALUES (?, ?::uuid, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?::timestamptz, ?::jsonb, ?::jsonb, ?, ?, ?)
                 RETURNING *"""
             ).use { statement ->
                 bindInput(statement, input)
@@ -45,13 +46,13 @@ class ProspectRepository(private val database: Database) {
                 """UPDATE prospect_reports SET
                     listing_url = ?, vehicle_label = ?, asking_price_cents = ?, mileage = ?,
                     location = ?, seller_name = ?, vin = ?, status = ?, summary = ?,
-                    checklist_json = ?::jsonb, obd_json = ?::jsonb, estimated_repair_cents = ?,
+                    auction_status = ?, auction_ends_at = ?::timestamptz, checklist_json = ?::jsonb, obd_json = ?::jsonb, estimated_repair_cents = ?,
                     recommended_offer_cents = ?, value_notes = ?, updated_at = NOW()
                 WHERE id = ?::uuid
                 RETURNING *"""
             ).use { statement ->
                 bindInput(statement, input, offset = 0)
-                statement.setString(15, id)
+                statement.setString(17, id)
                 statement.executeQuery().use { result -> if (result.next()) result.toProspectReport() else null }
             }
         }
@@ -68,6 +69,7 @@ class ProspectRepository(private val database: Database) {
         require(input.listingUrl.trim().length in 8..2000)
         require(input.vehicleLabel.trim().length in 2..180)
         require(input.status in allowedStatuses)
+        require(input.auctionStatus in allowedAuctionStatuses)
         require(input.mileage == null || input.mileage >= 0)
         require(input.askingPriceCents == null || input.askingPriceCents >= 0)
         require(input.estimatedRepairCents == null || input.estimatedRepairCents >= 0)
@@ -93,13 +95,15 @@ class ProspectRepository(private val database: Database) {
         statement.setString(offset + 7, input.vin?.trim()?.ifEmpty { null })
         statement.setString(offset + 8, input.status)
         statement.setString(offset + 9, input.summary.trim())
-        statement.setString(offset + 10, json.encodeToString(input.checklist.map {
+        statement.setString(offset + 10, input.auctionStatus)
+        statement.setString(offset + 11, input.auctionEndsAt?.trim()?.ifEmpty { null })
+        statement.setString(offset + 12, json.encodeToString(input.checklist.map {
             it.copy(category = it.category.trim(), label = it.label.trim(), notes = it.notes.trim())
         }))
-        statement.setString(offset + 11, json.encodeToString(input.obd))
-        if (input.estimatedRepairCents == null) statement.setNull(offset + 12, java.sql.Types.BIGINT) else statement.setLong(offset + 12, input.estimatedRepairCents)
-        if (input.recommendedOfferCents == null) statement.setNull(offset + 13, java.sql.Types.BIGINT) else statement.setLong(offset + 13, input.recommendedOfferCents)
-        statement.setString(offset + 14, input.valueNotes.trim())
+        statement.setString(offset + 13, json.encodeToString(input.obd))
+        if (input.estimatedRepairCents == null) statement.setNull(offset + 14, java.sql.Types.BIGINT) else statement.setLong(offset + 14, input.estimatedRepairCents)
+        if (input.recommendedOfferCents == null) statement.setNull(offset + 15, java.sql.Types.BIGINT) else statement.setLong(offset + 15, input.recommendedOfferCents)
+        statement.setString(offset + 16, input.valueNotes.trim())
     }
 
     private fun ResultSet.toProspectReport() = ProspectReport(
@@ -114,6 +118,8 @@ class ProspectRepository(private val database: Database) {
         vin = getString("vin"),
         status = getString("status"),
         summary = getString("summary"),
+        auctionStatus = getString("auction_status") ?: "unknown",
+        auctionEndsAt = getObject("auction_ends_at")?.toString(),
         checklist = json.decodeFromString(getString("checklist_json")),
         obd = json.decodeFromString(getString("obd_json")),
         estimatedRepairCents = (getObject("estimated_repair_cents") as? Number)?.toLong(),

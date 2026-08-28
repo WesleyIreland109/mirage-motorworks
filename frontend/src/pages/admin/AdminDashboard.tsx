@@ -18,6 +18,8 @@ import { Link } from "react-router-dom";
 
 import {
   createFleetVehicle,
+  currentUser,
+  listShareableUsers,
   listTelemetrySessions,
   listFleet,
   removeFleetVehicleShare,
@@ -318,19 +320,36 @@ function TaskRow({
 
 function ShareVehiclePanel({ vehicle }: { vehicle: FleetVehicle }) {
   const client = useQueryClient();
-  const [email, setEmail] = useState("");
+  const [selectedUserId, setSelectedUserId] = useState("");
   const [error, setError] = useState("");
   const accessRole = vehicle.accessRole ?? "owner";
   const shares = vehicle.shares ?? [];
+  const { data: signedInUser } = useQuery({
+    queryKey: ["auth-user"],
+    queryFn: currentUser,
+  });
+  const { data: users = [] } = useQuery({
+    queryKey: ["shareable-users"],
+    queryFn: listShareableUsers,
+    enabled: accessRole === "owner" && Boolean(signedInUser),
+  });
+  const availableUsers = signedInUser
+    ? users.filter(
+        (user) =>
+          user.id !== signedInUser.id &&
+          !shares.some((shareItem) => shareItem.userId === user.id),
+      )
+    : [];
   const share = useMutation({
-    mutationFn: () => shareFleetVehicle(vehicle.id, email, "editor"),
+    mutationFn: () => shareFleetVehicle(vehicle.id, selectedUserId, "editor"),
     onSuccess: () => {
-      setEmail("");
+      setSelectedUserId("");
       setError("");
       client.invalidateQueries({ queryKey: ["fleet"] });
+      client.invalidateQueries({ queryKey: ["shareable-users"] });
     },
     onError: () =>
-      setError("That person needs a GarageOS account before you can share this vehicle."),
+      setError("Select an existing GarageOS user before sharing this vehicle."),
   });
   const remove = useMutation({
     mutationFn: (shareId: string) => removeFleetVehicleShare(vehicle.id, shareId),
@@ -360,14 +379,22 @@ function ShareVehiclePanel({ vehicle }: { vehicle: FleetVehicle }) {
 
       {isOwner && (
         <div className="mt-4 grid gap-3 sm:grid-cols-[1fr_auto]">
-          <Input
-            type="email"
-            placeholder="Co-owner email"
-            value={email}
-            onChange={(event) => setEmail(event.target.value)}
-          />
+          <select
+            className="h-11 border border-mirage-border bg-mirage-secondary px-3 text-sm"
+            value={selectedUserId}
+            onChange={(event) => setSelectedUserId(event.target.value)}
+          >
+            <option value="">
+              {availableUsers.length ? "Select existing GarageOS user" : "No available users to share with"}
+            </option>
+            {availableUsers.map((user) => (
+              <option key={user.id} value={user.id}>
+                {user.displayName} · {user.email}
+              </option>
+            ))}
+          </select>
           <Button
-            disabled={share.isPending || !email.trim()}
+            disabled={share.isPending || !selectedUserId}
             onClick={() => share.mutate()}
           >
             <Share2 size={16} />
