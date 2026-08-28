@@ -19,7 +19,16 @@ export function PublicLayout() {
   const closeMobileMenu = () => setIsMobileMenuOpen(false);
 
   return (
-    <div className="min-h-screen bg-mirage-bg text-white">
+    <div className="relative min-h-screen overflow-hidden bg-mirage-bg text-white">
+      <div className="pointer-events-none fixed inset-0 z-0">
+        <div className="star-field absolute inset-0 opacity-35 sm:opacity-25" />
+        <div className="atmospheric-grain absolute inset-0 opacity-[0.08] sm:opacity-[0.055]" />
+        <div className="absolute inset-x-0 bottom-0 h-[42vh] overflow-hidden opacity-85 sm:opacity-70">
+          <div className="hero-grid absolute inset-x-[-24%] bottom-[-46%] h-[132%] opacity-25 sm:opacity-18" />
+          <div className="absolute inset-x-0 bottom-16 mx-auto h-48 max-w-4xl rounded-t-full bg-mirage-gradient opacity-[0.12] blur-3xl sm:opacity-[0.09]" />
+          <div className="city-silhouette absolute inset-x-0 bottom-0 h-36 opacity-80" />
+        </div>
+      </div>
       <header className="fixed left-0 right-0 top-0 z-50 border-b border-white/10 bg-mirage-bg/72 backdrop-blur-xl">
         <div className="mx-auto flex h-20 max-w-7xl items-center justify-between px-5">
           <Logo />
@@ -91,8 +100,10 @@ export function PublicLayout() {
           </nav>
         </div>
       </header>
-      <Outlet />
-      <footer className="border-t border-mirage-border bg-mirage-secondary">
+      <div className="relative z-10">
+        <Outlet />
+      </div>
+      <footer className="relative z-10 border-t border-mirage-border bg-mirage-secondary">
         <div className="mx-auto grid max-w-7xl gap-10 px-5 py-12 md:grid-cols-[1fr_auto]">
           <div>
             <Logo />

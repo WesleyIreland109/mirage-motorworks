@@ -42,13 +42,13 @@ export function HomePage() {
   return (
     <main>
       <section className="relative flex min-h-[88vh] items-center overflow-hidden px-5 pb-16 pt-32 sm:pt-28 lg:pt-20">
-        <div className="star-field absolute inset-0 opacity-60" />
-        <div className="atmospheric-grain absolute inset-0 opacity-[0.06]" />
+        <div className="star-field absolute inset-0 opacity-75 sm:opacity-65" />
+        <div className="atmospheric-grain absolute inset-0 opacity-[0.09] sm:opacity-[0.07]" />
         <div className="absolute inset-x-0 bottom-0 h-[52vh] overflow-hidden">
-          <div className="hero-grid absolute inset-x-[-18%] bottom-[-34%] h-[118%] opacity-28" />
-          <div className="absolute inset-x-0 bottom-24 mx-auto h-44 max-w-5xl rounded-t-full bg-mirage-gradient opacity-[0.18] blur-3xl" />
-          <div className="absolute inset-x-0 bottom-24 mx-auto h-36 max-w-3xl rounded-t-full border-t border-mirage-pink/20 bg-gradient-to-t from-mirage-orange/12 via-mirage-pink/12 to-mirage-cyan/10" />
-          <div className="city-silhouette absolute inset-x-0 bottom-0 h-40 opacity-80" />
+          <div className="hero-grid absolute inset-x-[-18%] bottom-[-34%] h-[118%] opacity-40 sm:opacity-34" />
+          <div className="absolute inset-x-0 bottom-24 mx-auto h-44 max-w-5xl rounded-t-full bg-mirage-gradient opacity-[0.26] blur-3xl sm:opacity-[0.22]" />
+          <div className="absolute inset-x-0 bottom-24 mx-auto h-36 max-w-3xl rounded-t-full border-t border-mirage-pink/25 bg-gradient-to-t from-mirage-orange/16 via-mirage-pink/16 to-mirage-cyan/14" />
+          <div className="city-silhouette absolute inset-x-0 bottom-0 h-40 opacity-95" />
         </div>
         <div className="relative z-10 mx-auto grid w-full max-w-7xl gap-12 lg:grid-cols-[1fr_440px] lg:items-end">
           <motion.div
@@ -56,7 +56,7 @@ export function HomePage() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.28 }}
           >
-            <h1 className="max-w-5xl font-display text-6xl font-bold leading-[0.9] text-white sm:text-7xl lg:text-8xl">
+            <h1 className="max-w-5xl text-6xl font-bold leading-[0.9] text-white sm:text-7xl lg:text-8xl">
               Automated Garage.
               <br />
               Restored Icons.
