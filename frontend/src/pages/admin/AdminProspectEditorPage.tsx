@@ -82,9 +82,11 @@ export function AdminProspectEditorPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [form, setForm] = useState<ProspectFormState>(blankProspectForm);
+  const [listingText, setListingText] = useState("");
   const [message, setMessage] = useState("");
-  const lastAutoAnalyzedUrl = useRef("");
+  const lastDetectedUrl = useRef("");
   const isCarsAndBids = isCarsAndBidsUrl(form.listingUrl);
+  const hasPastedListingText = listingText.trim().length >= 40;
 
   const { data: prospects = [], isLoading } = useQuery({
     queryKey: ["prospects"],
@@ -116,7 +118,7 @@ export function AdminProspectEditorPage() {
   });
 
   const analyzeListing = useMutation({
-    mutationFn: () => analyzeProspect(inputFromProspectForm(form)),
+    mutationFn: () => analyzeProspect(inputFromProspectForm(form), listingText),
     onSuccess: (analysis) => {
       setForm((current) => ({
         ...current,
@@ -144,9 +146,9 @@ export function AdminProspectEditorPage() {
   });
 
   useEffect(() => {
-    if (!isCarsAndBids || !form.listingUrl || analyzeListing.isPending) return;
-    if (lastAutoAnalyzedUrl.current === form.listingUrl) return;
-    lastAutoAnalyzedUrl.current = form.listingUrl;
+    if (!isCarsAndBids || !form.listingUrl) return;
+    if (lastDetectedUrl.current === form.listingUrl) return;
+    lastDetectedUrl.current = form.listingUrl;
     const fallbackLabel = labelFromCarsAndBidsUrl(form.listingUrl);
     if (fallbackLabel && !form.vehicleLabel.trim()) {
       setForm((current) => ({
@@ -156,9 +158,8 @@ export function AdminProspectEditorPage() {
         auctionStatus: current.auctionStatus === "unknown" ? "live" : current.auctionStatus,
       }));
     }
-    setMessage("Cars & Bids link detected. MirageAI is analyzing the listing...");
-    analyzeListing.mutate();
-  }, [analyzeListing, form.listingUrl, form.vehicleLabel, form.auctionStatus, form.status, isCarsAndBids]);
+    setMessage("Cars & Bids link detected. Paste listing details, then run MirageAI.");
+  }, [form.listingUrl, form.vehicleLabel, isCarsAndBids]);
 
   const removeProspect = useMutation({
     mutationFn: deleteProspect,
@@ -263,20 +264,27 @@ export function AdminProspectEditorPage() {
                 <Input inputMode="url" placeholder="https://..." value={form.listingUrl} onChange={(event) => setForm({ ...form, listingUrl: event.target.value })} />
                 <Button
                   variant="secondary"
-                  disabled={analyzeListing.isPending || !form.listingUrl}
+                  disabled={analyzeListing.isPending || !form.listingUrl || (isCarsAndBids && !hasPastedListingText)}
                   onClick={() => analyzeListing.mutate()}
                 >
                   <Bot size={16} />
-                  {analyzeListing.isPending ? "Analyzing..." : isCarsAndBids ? "Analyze Cars & Bids" : "Analyze listing"}
+                  {analyzeListing.isPending ? "Analyzing..." : isCarsAndBids ? "Analyze pasted listing" : "Analyze listing"}
                 </Button>
               </div>
             </label>
             {isCarsAndBids && (
-              <div className="border border-mirage-cyan/20 bg-mirage-cyan/10 p-4 text-sm leading-6 text-mirage-muted md:col-span-2">
-                Cars & Bids listing detected. MirageAI will prioritize auction title,
-                mileage, location, seller notes, bidding context, visible risk, and
-                margin room before suggesting a conservative Mirage target offer.
-              </div>
+              <label className="space-y-2 md:col-span-2">
+                <span className="text-xs font-semibold uppercase tracking-[0.18em] text-mirage-muted">Cars & Bids listing text</span>
+                <Textarea
+                  className="min-h-44"
+                  placeholder="Paste the visible listing details, seller notes, bids, end time, location, mileage, highlights, and flaws."
+                  value={listingText}
+                  onChange={(event) => setListingText(event.target.value)}
+                />
+                <span className="block text-xs text-mirage-muted">
+                  Cars & Bids blocks backend scraping, so this text gives MirageAI the actual auction data.
+                </span>
+              </label>
             )}
             <InputBlock label="Vehicle label" value={form.vehicleLabel} placeholder="2013 Camaro 2SS" onChange={(value) => setForm({ ...form, vehicleLabel: value })} />
             <SelectBlock

@@ -67,7 +67,8 @@ data class ProspectReport(
 
 @Serializable
 data class ProspectAIRequest(
-    val prospect: ProspectReportInput
+    val prospect: ProspectReportInput,
+    val listingText: String = ""
 )
 
 @Serializable

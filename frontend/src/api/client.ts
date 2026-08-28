@@ -221,10 +221,10 @@ export async function updateProspect(id: string, input: ProspectReportInput): Pr
 export async function deleteProspect(id: string): Promise<void> {
   await request<void>(`/prospects/${id}`, { method: "DELETE" });
 }
-export async function analyzeProspect(input: ProspectReportInput): Promise<ProspectAIAnalysis> {
+export async function analyzeProspect(input: ProspectReportInput, listingText = ""): Promise<ProspectAIAnalysis> {
   return request<ProspectAIAnalysis>("/prospects/analyze", {
     method: "POST",
-    body: JSON.stringify({ prospect: input }),
+    body: JSON.stringify({ prospect: input, listingText }),
   });
 }
 export async function analyzeTelemetry(input: { vehicle: MirageAIVehicleDraft; sessionLabel: string; startedAt: string; durationMs: number; samples: number; obdRequests: number; obdErrors: number; source: string; metrics: MetricSummary[] }): Promise<MirageAIAnalysis> {
