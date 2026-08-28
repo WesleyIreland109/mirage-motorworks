@@ -7,6 +7,8 @@ import java.net.http.HttpResponse
 import java.time.Duration
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
@@ -58,7 +60,9 @@ Keep the customer-facing report concise, professional, and explicit that recorde
         val account = config.cloudflareAccountId ?: return null
         val token = config.cloudflareAiToken ?: return null
         val listingText = input.listingText.trim().take(30_000).ifBlank {
-            fetchListingText(input.prospect.listingUrl)
+            fetchListingTextWithFirecrawl(input.prospect.listingUrl).ifBlank {
+                fetchListingText(input.prospect.listingUrl)
+            }
         }
         val facts = json.encodeToString(input)
         val system = """You are MirageAI, an internal acquisition assistant for Mirage Motorworks.
@@ -122,5 +126,30 @@ Return only valid JSON with exactly this shape: {"vehicleLabel":"string or null"
                 .trim()
                 .take(22_000)
         }.getOrDefault("Listing could not be fetched. Use staff-entered fields only.")
+    }
+
+    private fun fetchListingTextWithFirecrawl(url: String): String {
+        val token = config.firecrawlApiKey ?: return ""
+        val payload = buildJsonObject {
+            put("url", url.trim())
+            put("formats", buildJsonArray { add(JsonPrimitive("markdown")) })
+        }.toString()
+        val request = HttpRequest.newBuilder(URI.create("https://api.firecrawl.dev/v2/scrape"))
+            .timeout(Duration.ofSeconds(45))
+            .header("Authorization", "Bearer $token")
+            .header("Content-Type", "application/json")
+            .POST(HttpRequest.BodyPublishers.ofString(payload))
+            .build()
+        return runCatching {
+            val response = client.send(request, HttpResponse.BodyHandlers.ofString())
+            if (response.statusCode() !in 200..299) return@runCatching ""
+            val root = json.parseToJsonElement(response.body()).jsonObject
+            if (root["success"]?.jsonPrimitive?.booleanOrNull == false) return@runCatching ""
+            root["data"]?.jsonObject?.get("markdown")?.jsonPrimitive?.contentOrNull
+                ?.replace(Regex("\\s+"), " ")
+                ?.trim()
+                ?.take(30_000)
+                ?: ""
+        }.getOrDefault("")
     }
 }

@@ -16,6 +16,7 @@ data class AppConfig(
     val cloudflareAccountId: String? = System.getenv("CLOUDFLARE_ACCOUNT_ID")?.trim()?.ifEmpty { null },
     val cloudflareAiToken: String? = System.getenv("CLOUDFLARE_AI_TOKEN")?.trim()?.ifEmpty { null },
     val mirageAiModel: String = System.getenv("MIRAGE_AI_MODEL") ?: "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
+    val firecrawlApiKey: String? = System.getenv("FIRECRAWL_API_KEY")?.trim()?.ifEmpty { null },
     val bootstrapAdminEmail: String? = System.getenv("BOOTSTRAP_ADMIN_EMAIL")?.trim()?.lowercase()?.ifEmpty { null },
     val bootstrapAdminPassword: String? = System.getenv("BOOTSTRAP_ADMIN_PASSWORD")?.ifEmpty { null },
     val corsAllowedOrigins: List<String> = (System.getenv("CORS_ALLOWED_ORIGINS")

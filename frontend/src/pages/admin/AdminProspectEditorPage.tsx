@@ -84,9 +84,8 @@ export function AdminProspectEditorPage() {
   const [form, setForm] = useState<ProspectFormState>(blankProspectForm);
   const [listingText, setListingText] = useState("");
   const [message, setMessage] = useState("");
-  const lastDetectedUrl = useRef("");
+  const lastAutoAnalyzedUrl = useRef("");
   const isCarsAndBids = isCarsAndBidsUrl(form.listingUrl);
-  const hasPastedListingText = listingText.trim().length >= 40;
 
   const { data: prospects = [], isLoading } = useQuery({
     queryKey: ["prospects"],
@@ -146,9 +145,9 @@ export function AdminProspectEditorPage() {
   });
 
   useEffect(() => {
-    if (!isCarsAndBids || !form.listingUrl) return;
-    if (lastDetectedUrl.current === form.listingUrl) return;
-    lastDetectedUrl.current = form.listingUrl;
+    if (!isCarsAndBids || !form.listingUrl || analyzeListing.isPending) return;
+    if (lastAutoAnalyzedUrl.current === form.listingUrl) return;
+    lastAutoAnalyzedUrl.current = form.listingUrl;
     const fallbackLabel = labelFromCarsAndBidsUrl(form.listingUrl);
     if (fallbackLabel && !form.vehicleLabel.trim()) {
       setForm((current) => ({
@@ -158,8 +157,9 @@ export function AdminProspectEditorPage() {
         auctionStatus: current.auctionStatus === "unknown" ? "live" : current.auctionStatus,
       }));
     }
-    setMessage("Cars & Bids link detected. Paste listing details, then run MirageAI.");
-  }, [form.listingUrl, form.vehicleLabel, isCarsAndBids]);
+    setMessage("Cars & Bids link detected. MirageAI is scraping and analyzing it with Firecrawl...");
+    analyzeListing.mutate();
+  }, [analyzeListing, form.listingUrl, form.vehicleLabel, isCarsAndBids]);
 
   const removeProspect = useMutation({
     mutationFn: deleteProspect,
@@ -264,11 +264,11 @@ export function AdminProspectEditorPage() {
                 <Input inputMode="url" placeholder="https://..." value={form.listingUrl} onChange={(event) => setForm({ ...form, listingUrl: event.target.value })} />
                 <Button
                   variant="secondary"
-                  disabled={analyzeListing.isPending || !form.listingUrl || (isCarsAndBids && !hasPastedListingText)}
+                  disabled={analyzeListing.isPending || !form.listingUrl}
                   onClick={() => analyzeListing.mutate()}
                 >
                   <Bot size={16} />
-                  {analyzeListing.isPending ? "Analyzing..." : isCarsAndBids ? "Analyze pasted listing" : "Analyze listing"}
+                  {analyzeListing.isPending ? "Analyzing..." : isCarsAndBids ? "Analyze Cars & Bids" : "Analyze listing"}
                 </Button>
               </div>
             </label>
@@ -277,12 +277,12 @@ export function AdminProspectEditorPage() {
                 <span className="text-xs font-semibold uppercase tracking-[0.18em] text-mirage-muted">Cars & Bids listing text</span>
                 <Textarea
                   className="min-h-44"
-                  placeholder="Paste the visible listing details, seller notes, bids, end time, location, mileage, highlights, and flaws."
+                  placeholder="Optional fallback: paste the visible listing details, seller notes, bids, end time, location, mileage, highlights, and flaws if the scrape misses something."
                   value={listingText}
                   onChange={(event) => setListingText(event.target.value)}
                 />
                 <span className="block text-xs text-mirage-muted">
-                  Cars & Bids blocks backend scraping, so this text gives MirageAI the actual auction data.
+                  Firecrawl usually gets Cars & Bids cleanly. Pasted text overrides the scrape when you want to force exact details.
                 </span>
               </label>
             )}
