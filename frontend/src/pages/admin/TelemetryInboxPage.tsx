@@ -230,6 +230,20 @@ export function TelemetryInboxPage() {
     setMessage("Report access updated.");
   }
 
+  function cancelReportAccess(sessionId: string) {
+    setReports((current) => {
+      const next = { ...current };
+      delete next[sessionId];
+      return next;
+    });
+    setReportAccess((current) => {
+      const next = { ...current };
+      delete next[sessionId];
+      return next;
+    });
+    setMessage("Report access changes discarded.");
+  }
+
   async function publish(sessionId: string) {
     const access = reportAccess[sessionId] ?? { visibility: "private" as const };
     if (access.visibility === "customer" && !access.viewerUserId) { setMessage("Select the customer account that may view this report."); return; }
@@ -369,7 +383,7 @@ export function TelemetryInboxPage() {
                         <p className="mt-4 border-l-2 border-mirage-cyan pl-4 text-sm text-mirage-muted">
                           {report.overview}
                         </p>
-                        <div className="mt-5 grid gap-3 border-t border-mirage-border pt-5 md:grid-cols-[220px_1fr_auto]">
+                        <div className="mt-5 grid gap-3 border-t border-mirage-border pt-5 md:grid-cols-[220px_1fr_auto_auto]">
                           <select
                             className="h-11 border border-mirage-border bg-mirage-secondary px-3 text-sm"
                             value={access.visibility}
@@ -396,6 +410,9 @@ export function TelemetryInboxPage() {
                           <Button onClick={() => saveAccess(session.id)}>
                             <Send size={15} />
                             Save access
+                          </Button>
+                          <Button variant="ghost" onClick={() => cancelReportAccess(session.id)}>
+                            Cancel
                           </Button>
                         </div>
                       </>
