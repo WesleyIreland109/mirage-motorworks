@@ -53,7 +53,7 @@ export function AdminLayout() {
     <div className="min-h-screen bg-mirage-bg text-white lg:grid lg:grid-cols-[280px_1fr]">
       <aside className="border-b border-mirage-border bg-mirage-secondary lg:min-h-screen lg:border-b-0 lg:border-r">
         <div className="flex h-20 items-center px-5">
-          <Logo to="/admin" />
+          <Logo to="/" />
         </div>
         <div className="px-3 pb-3">
           <Link
