@@ -160,8 +160,8 @@ Return only valid JSON with exactly this shape: {"vehicleLabel":"string or null"
             ?: prospect.vehicleLabel.ifBlank { null }
         val subtitle = Regex("(?m)^##\\s+(.+)$").find(listingText)?.groupValues?.get(1)?.trim()
         val soldPrice = Regex("Sold for \\$([0-9,]+)", RegexOption.IGNORE_CASE).find(clean)?.groupValues?.get(1)
-        val bidPrice = Regex("Bid\\$([0-9,]+)", RegexOption.IGNORE_CASE).find(clean)?.groupValues?.get(1)
-        val askingPrice = moneyToCents(soldPrice ?: bidPrice) ?: prospect.askingPriceCents
+        val currentBid = Regex("\\bBid\\s*\\$([0-9,]+)", RegexOption.IGNORE_CASE).find(clean)?.groupValues?.get(1)
+        val askingPrice = moneyToCents(soldPrice ?: currentBid) ?: prospect.askingPriceCents
         val mileage = Regex("Mileage\\s*([0-9,]+)\\s*Miles", RegexOption.IGNORE_CASE)
             .find(clean)?.groupValues?.get(1)?.replace(",", "")?.toIntOrNull()
             ?: prospect.mileage
@@ -188,7 +188,10 @@ Return only valid JSON with exactly this shape: {"vehicleLabel":"string or null"
             status == "auction_live" -> "live"
             else -> prospect.auctionStatus
         }
-        val targetOffer = prospect.recommendedOfferCents ?: askingPrice?.let { (it * 72L) / 100L }
+        val repairEstimate = prospect.estimatedRepairCents ?: estimateRepairCents(clean, mileage, askingPrice)
+        val targetOffer = prospect.recommendedOfferCents ?: askingPrice?.let {
+            ((it * 72L) / 100L - repairEstimate).coerceAtLeast(0L)
+        }
         val summary = buildList {
             title?.let { add(it) }
             subtitle?.let { add(it) }
@@ -197,8 +200,11 @@ Return only valid JSON with exactly this shape: {"vehicleLabel":"string or null"
         }.joinToString(". ").ifBlank { prospect.summary }
         val notes = buildString {
             append("Firecrawl parsed this listing without a full AI pass. Review all fields before making an offer.")
+            if (currentBid != null) append("\n\nCurrent highest bid parsed from listing: ${'$'}$currentBid.")
+            if (soldPrice != null) append("\n\nSold price parsed from listing: ${'$'}$soldPrice.")
+            append("\n\nEstimated repair/prep budget is a rules-based fallback from listing condition language, mileage, and unknown-risk buffer.")
             if (askingPrice != null && targetOffer != null) {
-                append("\n\nFallback target uses a conservative 72% of the visible bid/sold price until MirageAI or human review refines repairs, transport, margin, and risk.")
+                append("\n\nFallback target uses a conservative 72% of the visible bid/sold price minus estimated repair/prep budget until MirageAI or human review refines repairs, transport, margin, and risk.")
             }
             if (subtitle != null) append("\n\nListing headline: $subtitle")
         }
@@ -213,11 +219,32 @@ Return only valid JSON with exactly this shape: {"vehicleLabel":"string or null"
             summary = summary,
             auctionStatus = auctionStatus,
             auctionEndsAt = prospect.auctionEndsAt,
+            estimatedRepairCents = repairEstimate,
             recommendedOfferCents = targetOffer,
             valueNotes = notes,
             confidence = "medium",
             sourceNotes = listOf("Parsed from Firecrawl markdown fallback.")
         )
+    }
+
+    private fun estimateRepairCents(text: String, mileage: Int?, referencePriceCents: Long?): Long {
+        var dollars = 1500L
+        val cues = listOf(
+            Regex("\\b(accident|damage reported|structural damage|frame damage|salvage|rebuilt title)\\b", RegexOption.IGNORE_CASE) to 4500L,
+            Regex("\\b(check engine|warning light|airbag light|abs light|fault code|diagnostic trouble code|dtc)\\b", RegexOption.IGNORE_CASE) to 2500L,
+            Regex("\\b(leak|leaking|seeps|seepage|oil leak|coolant leak|transmission leak)\\b", RegexOption.IGNORE_CASE) to 2200L,
+            Regex("\\b(rust|corrosion|paintwork|repaint|clear coat|scratches|dings|dents|chips|crack|tear|wear)\\b", RegexOption.IGNORE_CASE) to 1200L,
+            Regex("\\b(tires? need|worn tires?|brakes? need|worn brakes?|clutch|suspension|alignment)\\b", RegexOption.IGNORE_CASE) to 1800L,
+            Regex("\\b(no service history|unknown service|needs service|deferred maintenance|not working|inoperative)\\b", RegexOption.IGNORE_CASE) to 2500L
+        )
+        cues.forEach { (regex, amount) ->
+            val matches = regex.findAll(text).take(3).count()
+            dollars += amount * matches
+        }
+        if ((mileage ?: 0) > 100_000) dollars += 1500L
+        if ((mileage ?: 0) > 150_000) dollars += 2500L
+        referencePriceCents?.let { dollars = dollars.coerceAtMost((it / 100L * 45L / 100L).coerceAtLeast(2500L)) }
+        return ((dollars + 249L) / 500L) * 500L * 100L
     }
 
     private fun moneyToCents(value: String?): Long? {

@@ -163,7 +163,7 @@ export function AdminProspectsPage() {
               </div>
 
               <div className="mt-5 grid gap-3 text-sm text-mirage-muted sm:grid-cols-3">
-                <Metric label="Ask" value={formatMoney(prospect.askingPriceCents)} />
+                <Metric label="Bid / Ask" value={formatMoney(prospect.askingPriceCents)} />
                 <Metric label="Repairs" value={formatMoney(prospect.estimatedRepairCents)} />
                 <Metric label="Target" value={formatMoney(prospect.recommendedOfferCents)} />
               </div>

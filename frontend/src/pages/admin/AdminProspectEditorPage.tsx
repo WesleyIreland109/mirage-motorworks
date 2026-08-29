@@ -293,7 +293,7 @@ export function AdminProspectEditorPage() {
               options={Object.entries(prospectStatusLabels)}
               onChange={(value) => setForm({ ...form, status: value as ProspectStatus })}
             />
-            <InputBlock label="Asking price" value={form.askingPrice} placeholder="50000" onChange={(value) => setForm({ ...form, askingPrice: value })} />
+            <InputBlock label="Bid / asking price" value={form.askingPrice} placeholder="50000" onChange={(value) => setForm({ ...form, askingPrice: value })} />
             <InputBlock label="Mileage" value={form.mileage} placeholder="72500" onChange={(value) => setForm({ ...form, mileage: value })} />
             <InputBlock label="Location" value={form.location} placeholder="Austin, TX" onChange={(value) => setForm({ ...form, location: value })} />
             <InputBlock label="Seller" value={form.sellerName} placeholder="Private seller or dealer" onChange={(value) => setForm({ ...form, sellerName: value })} />
