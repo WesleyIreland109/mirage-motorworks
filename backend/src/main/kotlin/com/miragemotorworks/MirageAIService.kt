@@ -57,13 +57,14 @@ Keep the customer-facing report concise, professional, and explicit that recorde
     }
 
     fun analyzeProspect(input: ProspectAIRequest): ProspectAIResponse? {
-        val account = config.cloudflareAccountId ?: return null
-        val token = config.cloudflareAiToken ?: return null
         val listingText = input.listingText.trim().take(30_000).ifBlank {
             fetchListingTextWithFirecrawl(input.prospect.listingUrl).ifBlank {
                 fetchListingText(input.prospect.listingUrl)
             }
         }
+        val fallback = parseProspectListing(input.prospect, listingText)
+        val account = config.cloudflareAccountId ?: return fallback
+        val token = config.cloudflareAiToken ?: return fallback
         val facts = json.encodeToString(input)
         val system = """You are MirageAI, an internal acquisition assistant for Mirage Motorworks.
 Mirage refurbishes, rebuilds, repairs, and restores neglected enthusiast cars. Your job is to help staff triage a potential acquisition, not to produce consumer financial advice. Use only supplied listing text and staff-entered fields. Pasted listing text is the preferred source when provided. Do not invent a VIN, mileage, accident history, title status, location, seller, or inspection result. If listing text is incomplete, preserve nulls and say what still needs human verification.
@@ -88,7 +89,7 @@ Return only valid JSON with exactly this shape: {"vehicleLabel":"string or null"
             val content = aiText(response.body()) ?: return@runCatching null
             val cleaned = content.trim().removePrefix("```json").removePrefix("```").removeSuffix("```").trim()
             json.decodeFromString<ProspectAIResponse>(cleaned)
-        }.getOrNull()
+        }.getOrNull() ?: fallback
     }
 
     private fun aiText(body: String): String? {
@@ -146,10 +147,81 @@ Return only valid JSON with exactly this shape: {"vehicleLabel":"string or null"
             val root = json.parseToJsonElement(response.body()).jsonObject
             if (root["success"]?.jsonPrimitive?.booleanOrNull == false) return@runCatching ""
             root["data"]?.jsonObject?.get("markdown")?.jsonPrimitive?.contentOrNull
-                ?.replace(Regex("\\s+"), " ")
                 ?.trim()
                 ?.take(30_000)
                 ?: ""
         }.getOrDefault("")
+    }
+
+    private fun parseProspectListing(prospect: ProspectReportInput, listingText: String): ProspectAIResponse? {
+        val clean = listingText.replace(Regex("\\s+"), " ").trim()
+        if (clean.length < 80 || clean.contains("Just a moment", ignoreCase = true)) return null
+        val title = Regex("(?m)^#\\s+(.+)$").find(listingText)?.groupValues?.get(1)?.trim()
+            ?: prospect.vehicleLabel.ifBlank { null }
+        val subtitle = Regex("(?m)^##\\s+(.+)$").find(listingText)?.groupValues?.get(1)?.trim()
+        val soldPrice = Regex("Sold for \\$([0-9,]+)", RegexOption.IGNORE_CASE).find(clean)?.groupValues?.get(1)
+        val bidPrice = Regex("Bid\\$([0-9,]+)", RegexOption.IGNORE_CASE).find(clean)?.groupValues?.get(1)
+        val askingPrice = moneyToCents(soldPrice ?: bidPrice) ?: prospect.askingPriceCents
+        val mileage = Regex("Mileage\\s*([0-9,]+)\\s*Miles", RegexOption.IGNORE_CASE)
+            .find(clean)?.groupValues?.get(1)?.replace(",", "")?.toIntOrNull()
+            ?: prospect.mileage
+        val vin = Regex("\\bVIN\\s*([A-HJ-NPR-Z0-9]{11,17})\\b", RegexOption.IGNORE_CASE)
+            .find(clean)?.groupValues?.get(1)
+            ?: prospect.vin
+        val location = Regex("Location\\[([^\\]]+)]", RegexOption.IGNORE_CASE)
+            .find(clean)?.groupValues?.get(1)
+            ?: prospect.location
+        val seller = Regex("\\n\\[([^\\]]+)]\\(https://carsandbids.com/user/[^)]+\\)", RegexOption.IGNORE_CASE)
+            .find(listingText)?.groupValues?.get(1)
+            ?: prospect.sellerName
+        val isSold = clean.contains("Sold for", ignoreCase = true) || clean.contains("Sold to", ignoreCase = true)
+        val isEnded = isSold || clean.contains("Auction Ended", ignoreCase = true) || clean.contains("This auction has ended", ignoreCase = true)
+        val status = when {
+            isSold -> "sold"
+            isEnded -> "auction_ended"
+            clean.contains("Auction ends", ignoreCase = true) -> "auction_live"
+            else -> prospect.status
+        }
+        val auctionStatus = when {
+            isSold -> "sold"
+            isEnded -> "ended"
+            status == "auction_live" -> "live"
+            else -> prospect.auctionStatus
+        }
+        val targetOffer = prospect.recommendedOfferCents ?: askingPrice?.let { (it * 72L) / 100L }
+        val summary = buildList {
+            title?.let { add(it) }
+            subtitle?.let { add(it) }
+            if (mileage != null) add("${"%,d".format(mileage)} miles shown")
+            if (location.isNotBlank()) add(location)
+        }.joinToString(". ").ifBlank { prospect.summary }
+        val notes = buildString {
+            append("Firecrawl parsed this listing without a full AI pass. Review all fields before making an offer.")
+            if (askingPrice != null && targetOffer != null) {
+                append("\n\nFallback target uses a conservative 72% of the visible bid/sold price until MirageAI or human review refines repairs, transport, margin, and risk.")
+            }
+            if (subtitle != null) append("\n\nListing headline: $subtitle")
+        }
+        return ProspectAIResponse(
+            vehicleLabel = title,
+            askingPriceCents = askingPrice,
+            mileage = mileage,
+            location = location.ifBlank { null },
+            sellerName = seller.ifBlank { null },
+            vin = vin,
+            status = status,
+            summary = summary,
+            auctionStatus = auctionStatus,
+            auctionEndsAt = prospect.auctionEndsAt,
+            recommendedOfferCents = targetOffer,
+            valueNotes = notes,
+            confidence = "medium",
+            sourceNotes = listOf("Parsed from Firecrawl markdown fallback.")
+        )
+    }
+
+    private fun moneyToCents(value: String?): Long? {
+        val dollars = value?.replace(",", "")?.trim()?.toLongOrNull() ?: return null
+        return dollars * 100
     }
 }
