@@ -89,3 +89,32 @@ data class ProspectAIResponse(
     val confidence: String = "low",
     val sourceNotes: List<String> = emptyList()
 )
+
+@Serializable
+data class ProspectScrapeRequest(
+    val source: String = "carsandbids",
+    val maxPriceCents: Long? = null,
+    val minYear: Int? = null,
+    val maxYear: Int? = null,
+    val transmission: String = "any",
+    val makes: List<String> = emptyList(),
+    val maxResults: Int = 12
+)
+
+@Serializable
+data class ProspectScrapeCandidate(
+    val listingUrl: String,
+    val vehicleLabel: String,
+    val askingPriceCents: Long? = null,
+    val year: Int? = null,
+    val make: String? = null,
+    val transmission: String? = null,
+    val summary: String = "",
+    val auctionStatus: String = "unknown"
+)
+
+@Serializable
+data class ProspectScrapeResponse(
+    val candidates: List<ProspectScrapeCandidate>,
+    val sourceNotes: List<String> = emptyList()
+)

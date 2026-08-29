@@ -13,6 +13,8 @@ import type {
   ProspectAIAnalysis,
   ProspectReport,
   ProspectReportInput,
+  ProspectScrapeRequest,
+  ProspectScrapeResponse,
 } from "@/types/fleet";
 
 const API_BASE_URL =
@@ -225,6 +227,12 @@ export async function analyzeProspect(input: ProspectReportInput, listingText = 
   return request<ProspectAIAnalysis>("/prospects/analyze", {
     method: "POST",
     body: JSON.stringify({ prospect: input, listingText }),
+  });
+}
+export async function scrapeProspectCandidates(input: ProspectScrapeRequest): Promise<ProspectScrapeResponse> {
+  return request<ProspectScrapeResponse>("/prospects/scrape", {
+    method: "POST",
+    body: JSON.stringify(input),
   });
 }
 export async function analyzeTelemetry(input: { vehicle: MirageAIVehicleDraft; sessionLabel: string; startedAt: string; durationMs: number; samples: number; obdRequests: number; obdErrors: number; source: string; metrics: MetricSummary[] }): Promise<MirageAIAnalysis> {

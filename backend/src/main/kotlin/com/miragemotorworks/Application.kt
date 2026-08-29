@@ -365,6 +365,21 @@ fun Application.module(config: AppConfig, vehicles: VehicleRepository, auth: Aut
                 if (result == null) call.respond(HttpStatusCode.ServiceUnavailable, mapOf("message" to "MirageAI is not configured or temporarily unavailable"))
                 else call.respond(result)
             }
+            post("/scrape") {
+                val user = call.authenticatedUser(auth) ?: return@post
+                if (user.role != "admin") {
+                    call.respond(HttpStatusCode.Forbidden, mapOf("message" to "Administrator access required"))
+                    return@post
+                }
+                val input = runCatching { call.receive<ProspectScrapeRequest>() }.getOrNull()
+                if (input == null) {
+                    call.respond(HttpStatusCode.BadRequest, mapOf("message" to "Check the scrape filters."))
+                    return@post
+                }
+                val result = mirageAI.scrapeProspects(input)
+                if (result == null) call.respond(HttpStatusCode.ServiceUnavailable, mapOf("message" to "Firecrawl is not configured or temporarily unavailable"))
+                else call.respond(result)
+            }
             put("/{id}") {
                 val user = call.authenticatedUser(auth) ?: return@put
                 if (user.role != "admin") {

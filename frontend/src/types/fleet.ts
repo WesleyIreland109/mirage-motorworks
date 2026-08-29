@@ -184,3 +184,29 @@ export interface ProspectAIAnalysis {
 }
 
 export type ProspectReportInput = Omit<ProspectReport, "id" | "createdByUserId" | "createdAt" | "updatedAt">;
+
+export interface ProspectScrapeRequest {
+  source: "carsandbids";
+  maxPriceCents?: number;
+  minYear?: number;
+  maxYear?: number;
+  transmission: "any" | "manual" | "automatic";
+  makes: string[];
+  maxResults: number;
+}
+
+export interface ProspectScrapeCandidate {
+  listingUrl: string;
+  vehicleLabel: string;
+  askingPriceCents?: number;
+  year?: number;
+  make?: string;
+  transmission?: string;
+  summary: string;
+  auctionStatus: ProspectAuctionStatus;
+}
+
+export interface ProspectScrapeResponse {
+  candidates: ProspectScrapeCandidate[];
+  sourceNotes: string[];
+}

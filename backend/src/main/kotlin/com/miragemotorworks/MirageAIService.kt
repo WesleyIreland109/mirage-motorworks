@@ -92,6 +92,20 @@ Return only valid JSON with exactly this shape: {"vehicleLabel":"string or null"
         }.getOrNull() ?: fallback
     }
 
+    fun scrapeProspects(input: ProspectScrapeRequest): ProspectScrapeResponse? {
+        if (input.source != "carsandbids") return ProspectScrapeResponse(emptyList(), listOf("Cars & Bids is the only supported scrape source right now."))
+        val markdown = scrapeMarkdown("https://carsandbids.com/").ifBlank { return null }
+        val candidates = parseCarsAndBidsCandidates(markdown)
+            .filter { it.matches(input) }
+            .distinctBy { it.listingUrl }
+            .take(input.maxResults.coerceIn(1, 30))
+        val notes = buildList {
+            add("Scraped Cars & Bids homepage through Firecrawl.")
+            if (candidates.any { it.askingPriceCents == null }) add("Some listings did not expose a bid in the homepage scrape; open/analyze the prospect for deeper parsing.")
+        }
+        return ProspectScrapeResponse(candidates, notes)
+    }
+
     private fun aiText(body: String): String? {
         val result = json.parseToJsonElement(body).jsonObject["result"]?.jsonObject ?: return null
         val choice = result["choices"]?.jsonArray?.firstOrNull()?.jsonObject
@@ -130,6 +144,10 @@ Return only valid JSON with exactly this shape: {"vehicleLabel":"string or null"
     }
 
     private fun fetchListingTextWithFirecrawl(url: String): String {
+        return scrapeMarkdown(url)
+    }
+
+    private fun scrapeMarkdown(url: String): String {
         val token = config.firecrawlApiKey ?: return ""
         val payload = buildJsonObject {
             put("url", url.trim())
@@ -151,6 +169,64 @@ Return only valid JSON with exactly this shape: {"vehicleLabel":"string or null"
                 ?.take(30_000)
                 ?: ""
         }.getOrDefault("")
+    }
+
+    private fun parseCarsAndBidsCandidates(markdown: String): List<ProspectScrapeCandidate> {
+        val linkPattern = Regex("\\[([^\\]]+)]\\((https://carsandbids\\.com/auctions/[^)]+)\\)", RegexOption.IGNORE_CASE)
+        val matches = linkPattern.findAll(markdown).toList()
+        return matches.mapNotNull { match ->
+            val label = cleanVehicleLabel(match.groupValues[1])
+            if (!Regex("\\b(19|20)\\d{2}\\b").containsMatchIn(label)) return@mapNotNull null
+            val url = match.groupValues[2].substringBefore("?")
+            val start = (match.range.first - 650).coerceAtLeast(0)
+            val end = (match.range.last + 1200).coerceAtMost(markdown.length)
+            val context = markdown.substring(start, end).replace(Regex("\\s+"), " ")
+            val year = Regex("\\b(19|20)\\d{2}\\b").find(label)?.value?.toIntOrNull()
+            val make = detectMake(label)
+            val currentBid = Regex("\\b(?:Bid|Current Bid)\\s*\\$([0-9,]+)", RegexOption.IGNORE_CASE)
+                .find(context)?.groupValues?.get(1)
+            val transmission = detectTransmission("$label $context")
+            ProspectScrapeCandidate(
+                listingUrl = url,
+                vehicleLabel = label,
+                askingPriceCents = moneyToCents(currentBid),
+                year = year,
+                make = make,
+                transmission = transmission,
+                summary = context.take(240),
+                auctionStatus = "live"
+            )
+        }
+    }
+
+    private fun ProspectScrapeCandidate.matches(input: ProspectScrapeRequest): Boolean {
+        if (input.minYear != null && (year == null || year < input.minYear)) return false
+        if (input.maxYear != null && (year == null || year > input.maxYear)) return false
+        if (input.maxPriceCents != null && (askingPriceCents == null || askingPriceCents > input.maxPriceCents)) return false
+        if (input.transmission != "any" && transmission != input.transmission) return false
+        val normalizedMakes = input.makes.map { it.trim().lowercase() }.filter { it.isNotEmpty() }
+        if (normalizedMakes.isNotEmpty() && make?.lowercase() !in normalizedMakes) return false
+        return true
+    }
+
+    private fun cleanVehicleLabel(label: String): String =
+        label.replace(Regex("\\s+"), " ")
+            .replace("No Reserve: ", "")
+            .trim()
+
+    private fun detectTransmission(text: String): String? {
+        if (Regex("\\b(manual|5-speed|6-speed|stick shift)\\b", RegexOption.IGNORE_CASE).containsMatchIn(text)) return "manual"
+        if (Regex("\\b(automatic|auto|cvt|dual-clutch|dct)\\b", RegexOption.IGNORE_CASE).containsMatchIn(text)) return "automatic"
+        return null
+    }
+
+    private fun detectMake(label: String): String? {
+        val makes = listOf(
+            "Acura", "Honda", "Toyota", "Lexus", "Mazda", "Nissan", "Infiniti", "Subaru", "Mitsubishi",
+            "Ford", "Chevrolet", "Dodge", "Pontiac", "Jeep", "GMC", "Cadillac", "Buick", "Chrysler",
+            "Porsche", "BMW", "Mercedes-Benz", "Mercedes", "Audi", "Volkswagen", "Volvo", "Saab"
+        )
+        return makes.firstOrNull { Regex("\\b${Regex.escape(it)}\\b", RegexOption.IGNORE_CASE).containsMatchIn(label) }
     }
 
     private fun parseProspectListing(prospect: ProspectReportInput, listingText: String): ProspectAIResponse? {
