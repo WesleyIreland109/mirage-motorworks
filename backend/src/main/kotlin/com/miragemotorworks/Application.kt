@@ -289,6 +289,32 @@ fun Application.module(config: AppConfig, vehicles: VehicleRepository, auth: Aut
                 val user = call.authenticatedUser(auth) ?: return@get
                 call.respond(telemetry.list(user.id, call.request.queryParameters["vehicleId"], user.role == "admin"))
             }
+            get("/intake") {
+                val user = call.authenticatedUser(auth) ?: return@get
+                call.respond(telemetry.listIntake(user.id, user.role == "admin"))
+            }
+            post("/bulk") {
+                val user = call.authenticatedUser(auth) ?: return@post
+                val input = runCatching { call.receive<BulkTelemetryImportRequest>() }.getOrNull()
+                if (input == null) {
+                    call.respond(HttpStatusCode.BadRequest, mapOf("message" to "Check the bulk telemetry payload."))
+                    return@post
+                }
+                runCatching { telemetry.bulkImport(user.id, input, user.role == "admin") }
+                    .onSuccess { call.respond(HttpStatusCode.Created, it) }
+                    .onFailure { call.respond(HttpStatusCode.BadRequest, mapOf("message" to "Unable to bulk import those telemetry sessions.")) }
+            }
+            post("/intake/{id}/assign") {
+                val user = call.authenticatedUser(auth) ?: return@post
+                val input = runCatching { call.receive<IntakeAssignRequest>() }.getOrNull()
+                if (input == null) {
+                    call.respond(HttpStatusCode.BadRequest, mapOf("message" to "Select a vehicle for this intake drive."))
+                    return@post
+                }
+                val session = runCatching { telemetry.assignIntake(user.id, call.parameters["id"].orEmpty(), input.vehicleId, user.role == "admin") }.getOrNull()
+                if (session == null) call.respond(HttpStatusCode.NotFound, mapOf("message" to "Intake drive or vehicle not found"))
+                else call.respond(HttpStatusCode.Created, session)
+            }
             post {
                 val user = call.authenticatedUser(auth) ?: return@post
                 runCatching { telemetry.import(user.id, call.receive<SessionImport>(), user.role == "admin") }

@@ -4,8 +4,11 @@ import type {
   FleetVehicle,
   FleetVehicleInput,
   FleetVehicleUpdate,
+  BulkTelemetryImportResult,
   SessionImport,
   TaskStatus,
+  TelemetryIntakeImport,
+  TelemetryIntakeSession,
   TelemetrySession,
   MirageAIAnalysis,
   MirageAIVehicleDraft,
@@ -200,12 +203,32 @@ export async function listTelemetrySessions(
     `/telemetry-sessions${vehicleId ? `?vehicleId=${encodeURIComponent(vehicleId)}` : ""}`,
   );
 }
+export async function listTelemetryIntake(): Promise<TelemetryIntakeSession[]> {
+  return request<TelemetryIntakeSession[]>("/telemetry-sessions/intake");
+}
 export async function importTelemetrySession(
   input: SessionImport,
 ): Promise<TelemetrySession> {
   return request<TelemetrySession>("/telemetry-sessions", {
     method: "POST",
     body: JSON.stringify(input),
+  });
+}
+export async function bulkImportTelemetrySessions(
+  sessions: TelemetryIntakeImport[],
+): Promise<BulkTelemetryImportResult> {
+  return request<BulkTelemetryImportResult>("/telemetry-sessions/bulk", {
+    method: "POST",
+    body: JSON.stringify({ sessions }),
+  });
+}
+export async function assignTelemetryIntake(
+  intakeId: string,
+  vehicleId: string,
+): Promise<TelemetrySession> {
+  return request<TelemetrySession>(`/telemetry-sessions/intake/${intakeId}/assign`, {
+    method: "POST",
+    body: JSON.stringify({ vehicleId }),
   });
 }
 export async function deleteTelemetrySession(sessionId: string): Promise<void> {

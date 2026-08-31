@@ -89,6 +89,39 @@ export interface TelemetrySession extends Omit<SessionImport, "vehicleId"> {
   vehicleId: string;
   importedAt: string;
 }
+export interface TelemetryVehicleIdentity {
+  year?: number;
+  make?: string;
+  model?: string;
+  trim?: string;
+  vin?: string;
+  profileId?: string;
+}
+export interface TelemetryIntakeImport {
+  externalSessionId: string;
+  label: string;
+  startedAt: string;
+  durationMs: number;
+  samples: number;
+  obdRequests: number;
+  obdErrors: number;
+  source: SessionImport["source"];
+  metrics: MetricSummary[];
+  recordedMileage?: number;
+  detectedVehicle: TelemetryVehicleIdentity;
+}
+export interface TelemetryIntakeSession extends TelemetryIntakeImport {
+  id: string;
+  status: "unassigned" | "assigned" | "archived";
+  assignedVehicleId?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+export interface BulkTelemetryImportResult {
+  imported: TelemetrySession[];
+  queued: TelemetryIntakeSession[];
+  skipped: string[];
+}
 export interface DriveReport {
   id: string;
   sessionId: string;

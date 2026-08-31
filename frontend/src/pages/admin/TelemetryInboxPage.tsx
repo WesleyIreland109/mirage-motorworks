@@ -1,16 +1,16 @@
-import { Activity, Bot, Car, Check, Copy, Edit3, ExternalLink, FileUp, Save, Send, Sparkles, Trash2, X } from "lucide-react";
+import { Activity, Bot, Car, Check, Copy, Edit3, ExternalLink, FileUp, FolderUp, Save, Send, Sparkles, Trash2, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 
-import { analyzeTelemetry, createFleetVehicle, currentUser, deleteTelemetrySession, getDriveReportForSession, importTelemetrySession, listFleet, listTelemetrySessions, listUsers, publishDriveReport, saveDriveReport, updateTelemetrySession } from "@/api/client";
+import { analyzeTelemetry, assignTelemetryIntake, bulkImportTelemetrySessions, createFleetVehicle, currentUser, deleteTelemetrySession, getDriveReportForSession, importTelemetrySession, listFleet, listTelemetryIntake, listTelemetrySessions, listUsers, publishDriveReport, saveDriveReport, updateTelemetrySession } from "@/api/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { detectVehicle, summarizeTelemetry, type DetectedVehicle, type SessionSummary } from "@/lib/telemetryImport";
 import { vehicleDisplayName, vehicleFullLabel } from "@/lib/fleetDisplay";
-import type { DriveReport, FleetVehicle, MirageAIAnalysis, TelemetrySession, VehiclePurpose } from "@/types/fleet";
+import type { DriveReport, FleetVehicle, MirageAIAnalysis, TelemetryIntakeImport, TelemetrySession, VehiclePurpose } from "@/types/fleet";
 
 const destinationNames: Record<VehiclePurpose, string> = { personal: "My Garage", working_on: "Working On", flip: "Flips" };
 
@@ -35,8 +35,10 @@ export function TelemetryInboxPage() {
   const [reportAccess, setReportAccess] = useState<Record<string, { visibility: "private" | "customer" | "public"; viewerUserId?: string }>>({});
   const [aiOpen, setAiOpen] = useState(false);
   const [aiAnalysis, setAiAnalysis] = useState<MirageAIAnalysis>();
+  const [intakeVehicleIds, setIntakeVehicleIds] = useState<Record<string, string>>({});
   const { data: fleet = [] } = useQuery({ queryKey: ["fleet"], queryFn: listFleet });
   const { data: sessions = [] } = useQuery({ queryKey: ["telemetry-sessions"], queryFn: () => listTelemetrySessions() });
+  const { data: intake = [] } = useQuery({ queryKey: ["telemetry-intake"], queryFn: listTelemetryIntake });
   const { data: signedInUser } = useQuery({ queryKey: ["auth-user"], queryFn: currentUser, retry: false });
   const { data: users = [] } = useQuery({ queryKey: ["users"], queryFn: listUsers, enabled: signedInUser?.role === "admin" });
   const customers = users.filter((user) => user.role !== "admin");
@@ -89,6 +91,54 @@ export function TelemetryInboxPage() {
     }
   }
 
+  async function chooseBulkFolder(files: FileList | null) {
+    if (!files) return;
+    const groups = new Map<string, File[]>();
+    Array.from(files).forEach((file) => {
+      if (!file.name.endsWith(".json") && !file.name.endsWith(".jsonl")) return;
+      const path = file.webkitRelativePath || file.name;
+      const key = path.includes("/") ? path.split("/").slice(0, -1).join("/") : file.name.replace(/\.(json|jsonl)$/i, "");
+      groups.set(key, [...(groups.get(key) ?? []), file]);
+    });
+    const knownIds = new Set([...sessions.map((item) => item.externalSessionId), ...intake.map((item) => item.externalSessionId)]);
+    const imports: TelemetryIntakeImport[] = [];
+    let skippedLocal = 0;
+    for (const filesInGroup of groups.values()) {
+      const summaryFile = filesInGroup.find((file) => file.name.toLowerCase().includes("summary") && file.name.endsWith(".json"))
+        ?? filesInGroup.find((file) => file.name.endsWith(".json"));
+      const telemetryFile = filesInGroup.find((file) => file.name.endsWith(".jsonl"));
+      if (!summaryFile || !telemetryFile) continue;
+      try {
+        const sessionSummary = JSON.parse(await summaryFile.text()) as SessionSummary;
+        const externalSessionId = sessionSummary.id ?? summaryFile.webkitRelativePath ?? summaryFile.name;
+        if (knownIds.has(externalSessionId)) {
+          skippedLocal += 1;
+          continue;
+        }
+        const telemetry = summarizeTelemetry(await telemetryFile.text());
+        imports.push({
+          externalSessionId,
+          label: sessionSummary.label ?? "Mirage drive",
+          startedAt: sessionSummary.startedAt ?? new Date(summaryFile.lastModified).toISOString(),
+          durationMs: sessionSummary.durationMs ?? 0,
+          samples: sessionSummary.samples ?? telemetry.metrics.reduce((total, metric) => Math.max(total, metric.samples), 0),
+          obdRequests: sessionSummary.obdRequests ?? 0,
+          obdErrors: sessionSummary.obdErrors ?? 0,
+          source: telemetry.source,
+          metrics: telemetry.metrics,
+          detectedVehicle: detectVehicle(sessionSummary),
+        });
+      } catch {
+        skippedLocal += 1;
+      }
+    }
+    if (!imports.length) {
+      setMessage(skippedLocal ? `No missing drives found. Skipped ${skippedLocal} already imported or unreadable folder${skippedLocal === 1 ? "" : "s"}.` : "No complete summary/telemetry pairs found in that folder.");
+      return;
+    }
+    bulkImport.mutate(imports);
+  }
+
   const askMirageAI = useMutation({
     mutationFn: async () => {
       if (!summary || !telemetryText) throw new Error("Select both telemetry files first.");
@@ -111,6 +161,27 @@ export function TelemetryInboxPage() {
       setReports((current) => { const next = { ...current }; delete next[sessionId]; return next; });
       setMessage("The telemetry drive and its report were deleted.");
     },
+  });
+
+  const bulkImport = useMutation({
+    mutationFn: bulkImportTelemetrySessions,
+    onSuccess: (result) => {
+      client.invalidateQueries({ queryKey: ["fleet"] });
+      client.invalidateQueries({ queryKey: ["telemetry-sessions"] });
+      client.invalidateQueries({ queryKey: ["telemetry-intake"] });
+      setMessage(`Bulk upload complete: ${result.imported.length} attached, ${result.queued.length} queued, ${result.skipped.length} already known.`);
+    },
+    onError: () => setMessage("Bulk upload failed. Check that the folder contains summary JSON and telemetry JSONL files."),
+  });
+
+  const assignIntake = useMutation({
+    mutationFn: ({ intakeId, targetVehicleId }: { intakeId: string; targetVehicleId: string }) => assignTelemetryIntake(intakeId, targetVehicleId),
+    onSuccess: () => {
+      client.invalidateQueries({ queryKey: ["telemetry-sessions"] });
+      client.invalidateQueries({ queryKey: ["telemetry-intake"] });
+      setMessage("Queued drive assigned to vehicle.");
+    },
+    onError: () => setMessage("Unable to assign that queued drive."),
   });
 
   const renameSession = useMutation({
@@ -253,6 +324,37 @@ export function TelemetryInboxPage() {
   return <section className={`px-5 py-8 transition-[padding] lg:px-8 ${aiOpen ? "xl:pr-[410px]" : ""}`}>
     <div className="border-b border-mirage-border pb-6"><p className="text-sm font-semibold uppercase tracking-[.24em] text-mirage-cyan">Garage OS</p><h1 className="mt-2 text-4xl font-semibold">Telemetry Inbox</h1><p className="mt-2 text-sm text-mirage-muted">Upload once, identify the vehicle, then route the drive to the right workspace.</p></div>
     <Card className="mt-8 p-5 lg:p-6">
+      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+        <div className="flex items-center gap-3">
+          <FolderUp className="text-mirage-cyan" />
+          <div>
+            <h2 className="text-xl font-semibold">Bulk upload session folder</h2>
+            <p className="text-sm leading-6 text-mirage-muted">
+              Choose a folder of recorded sessions. GarageOS skips known drives,
+              attaches VIN matches, and queues anything unassigned below.
+            </p>
+          </div>
+        </div>
+        <label className="inline-flex h-11 cursor-pointer items-center justify-center gap-2 border border-mirage-cyan bg-mirage-cyan px-5 text-sm font-semibold text-black transition hover:bg-cyan-200">
+          <FolderUp size={16} />
+          {bulkImport.isPending ? "Uploading..." : "Select folder"}
+          <input
+            className="sr-only"
+            type="file"
+            multiple
+            accept=".json,.jsonl"
+            onChange={(event) => chooseBulkFolder(event.target.files)}
+            {...({ webkitdirectory: "", directory: "" } as Record<string, string>)}
+          />
+        </label>
+      </div>
+      <div className="mt-5 grid gap-3 text-sm text-mirage-muted md:grid-cols-3">
+        <Metric label="Known drives" value={String(sessions.length)} />
+        <Metric label="Queued" value={String(intake.length)} />
+        <Metric label="Matching rule" value="VIN first" />
+      </div>
+    </Card>
+    <Card className="mt-8 p-5 lg:p-6">
       <div className="flex items-center gap-3"><FileUp className="text-mirage-cyan"/><div><h2 className="text-xl font-semibold">Import recorded drive</h2><p className="text-sm text-mirage-muted">Choose the summary JSON and telemetry JSONL. Raw files remain in your browser.</p></div></div>
       <Input className="mt-5" type="file" multiple accept=".json,.jsonl" onChange={(event) => chooseFiles(event.target.files)}/>
       {(summary || telemetryText) && <div className="mt-6 space-y-5 border-t border-mirage-border pt-5">
@@ -267,6 +369,62 @@ export function TelemetryInboxPage() {
       </div>}
       {message && <p className="mt-4 text-sm text-mirage-muted">{message}</p>}
     </Card>
+    {intake.length > 0 && (
+      <Card className="mt-8 p-5 lg:p-6">
+        <div className="flex items-center gap-3 border-b border-white/[.08] pb-4">
+          <FileUp className="text-mirage-orange" />
+          <div>
+            <h2 className="text-xl font-semibold">Unassigned drive queue</h2>
+            <p className="text-sm text-mirage-muted">
+              These uploads did not match a VIN in GarageOS yet. Assign them when the vehicle record exists.
+            </p>
+          </div>
+        </div>
+        <div className="mt-4 grid gap-3">
+          {intake.map((item) => {
+            const identity = item.detectedVehicle;
+            const selectedVehicleId = intakeVehicleIds[item.id] ?? "";
+            return (
+              <Card key={item.id} className="bg-black/10 p-4">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                  <div>
+                    <p className="text-xs uppercase tracking-[.18em] text-mirage-muted">
+                      {identity.vin ? `VIN ${identity.vin}` : "VIN unavailable"}
+                    </p>
+                    <h3 className="mt-2 text-lg font-semibold">
+                      {[identity.year, identity.make, identity.model].filter(Boolean).join(" ") || item.label}
+                    </h3>
+                    <p className="mt-2 text-sm text-mirage-muted">
+                      {new Date(item.startedAt).toLocaleString()} · {item.metrics.length} metrics · {item.samples.toLocaleString()} samples
+                    </p>
+                  </div>
+                  <div className="grid gap-2 sm:grid-cols-[minmax(220px,1fr)_auto]">
+                    <select
+                      className="h-11 border border-mirage-border bg-mirage-secondary px-3 text-sm"
+                      value={selectedVehicleId}
+                      onChange={(event) => setIntakeVehicleIds((current) => ({ ...current, [item.id]: event.target.value }))}
+                    >
+                      <option value="">Assign to vehicle</option>
+                      {fleet.map((vehicle) => (
+                        <option key={vehicle.id} value={vehicle.id}>
+                          {destinationNames[vehicle.purpose]} · {vehicleDisplayName(vehicle)}
+                        </option>
+                      ))}
+                    </select>
+                    <Button
+                      disabled={assignIntake.isPending || !selectedVehicleId}
+                      onClick={() => assignIntake.mutate({ intakeId: item.id, targetVehicleId: selectedVehicleId })}
+                    >
+                      Attach
+                    </Button>
+                  </div>
+                </div>
+              </Card>
+            );
+          })}
+        </div>
+      </Card>
+    )}
     <div className="mt-8 grid gap-5">
       {sessionsByVehicle.map((group) => {
         const vehicle = group.vehicle;
@@ -432,4 +590,13 @@ export function TelemetryInboxPage() {
       {aiAnalysis && <div className="mt-7 space-y-6"><div><p className="text-xs font-semibold uppercase tracking-[.18em] text-mirage-muted">Suggested report</p><h3 className="mt-2 font-semibold">{aiAnalysis.title}</h3><p className="mt-3 text-sm leading-6 text-mirage-muted">{aiAnalysis.overview}</p></div><div><p className="text-xs font-semibold uppercase tracking-[.18em] text-mirage-muted">Observations</p><ul className="mt-3 space-y-3 text-sm leading-5 text-mirage-muted">{aiAnalysis.observations.map((item) => <li key={item} className="border-l border-mirage-cyan/50 pl-3">{item}</li>)}</ul></div>{aiAnalysis.suggestions.length > 0 && <div><p className="text-xs font-semibold uppercase tracking-[.18em] text-mirage-muted">Fields to review</p><ul className="mt-3 space-y-2 text-sm text-amber-100">{aiAnalysis.suggestions.map((item) => <li key={item}>• {item}</li>)}</ul><Button className="mt-4 w-full" variant="secondary" onClick={applyAISuggestions}><Check size={16}/> Apply suggested fields</Button></div>}<p className="text-xs leading-5 text-mirage-muted">Review the draft before saving. MirageAI describes recorded data; it does not perform a mechanical inspection.</p></div>}
     </aside>}
   </section>;
+}
+
+function Metric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="border border-white/[.06] bg-white/[.02] p-3">
+      <p className="text-[10px] font-semibold uppercase tracking-[.16em] text-mirage-muted">{label}</p>
+      <p className="mt-2 font-semibold text-white">{value}</p>
+    </div>
+  );
 }
