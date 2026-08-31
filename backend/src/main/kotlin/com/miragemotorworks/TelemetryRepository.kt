@@ -39,14 +39,15 @@ class TelemetryRepository(private val database: Database) {
         }
     }
 
-    fun list(userId: String, vehicleId: String? = null, isAdmin: Boolean = false): List<TelemetrySession> = database.withConnection { connection ->
+    fun list(userId: String, vehicleId: String? = null, isAdmin: Boolean = false, status: String = "active"): List<TelemetrySession> = database.withConnection { connection ->
+        require(status in setOf("active", "archived"))
         val sql = if (vehicleId == null) """SELECT s.* FROM telemetry_sessions s JOIN owned_vehicles v ON v.id=s.vehicle_id
             LEFT JOIN owned_vehicle_shares sh ON sh.vehicle_id = v.id AND sh.user_id = ?::uuid
-            WHERE v.user_id=?::uuid OR sh.user_id=?::uuid OR (? AND v.purpose <> 'personal') ORDER BY s.started_at DESC""" else """SELECT s.* FROM telemetry_sessions s JOIN owned_vehicles v ON v.id=s.vehicle_id
+            WHERE (v.user_id=?::uuid OR sh.user_id=?::uuid OR (? AND v.purpose <> 'personal')) AND s.status = ? ORDER BY s.started_at DESC""" else """SELECT s.* FROM telemetry_sessions s JOIN owned_vehicles v ON v.id=s.vehicle_id
             LEFT JOIN owned_vehicle_shares sh ON sh.vehicle_id = v.id AND sh.user_id = ?::uuid
-            WHERE (v.user_id=?::uuid OR sh.user_id=?::uuid OR (? AND v.purpose <> 'personal')) AND s.vehicle_id=?::uuid ORDER BY s.started_at DESC"""
+            WHERE (v.user_id=?::uuid OR sh.user_id=?::uuid OR (? AND v.purpose <> 'personal')) AND s.status = ? AND s.vehicle_id=?::uuid ORDER BY s.started_at DESC"""
         connection.prepareStatement(sql).use { statement ->
-            statement.setString(1, userId); statement.setString(2, userId); statement.setString(3, userId); statement.setBoolean(4, isAdmin); if (vehicleId != null) statement.setString(5, vehicleId)
+            statement.setString(1, userId); statement.setString(2, userId); statement.setString(3, userId); statement.setBoolean(4, isAdmin); statement.setString(5, status); if (vehicleId != null) statement.setString(6, vehicleId)
             statement.executeQuery().use { result -> buildList { while (result.next()) add(result.toSession()) } }
         }
     }
@@ -129,7 +130,7 @@ class TelemetryRepository(private val database: Database) {
                 """UPDATE telemetry_sessions s SET label = ?, imported_at = imported_at
                 FROM owned_vehicles v
                 LEFT JOIN owned_vehicle_shares sh ON sh.vehicle_id = v.id AND sh.user_id = ?::uuid
-                WHERE s.id = ?::uuid AND s.vehicle_id = v.id AND (v.user_id = ?::uuid OR sh.permission = 'editor' OR (? AND v.purpose <> 'personal'))
+                WHERE s.id = ?::uuid AND s.status = 'active' AND s.vehicle_id = v.id AND (v.user_id = ?::uuid OR sh.permission = 'editor' OR (? AND v.purpose <> 'personal'))
                 RETURNING s.*"""
             ).use { statement ->
                 statement.setString(1, update.label.trim())
@@ -220,10 +221,10 @@ class TelemetryRepository(private val database: Database) {
             statement.executeQuery().use { result -> result.next(); result.toIntakeSession() }
         }
 
-    fun delete(userId: String, sessionId: String, isAdmin: Boolean = false): Boolean = database.withConnection { connection ->
+    fun archive(userId: String, sessionId: String, isAdmin: Boolean = false): Boolean = database.withConnection { connection ->
         connection.prepareStatement(
-            """DELETE FROM telemetry_sessions s
-            WHERE s.id = ?::uuid AND EXISTS (
+            """UPDATE telemetry_sessions s SET status = 'archived', archived_at = NOW()
+            WHERE s.id = ?::uuid AND s.status = 'active' AND EXISTS (
                 SELECT 1 FROM owned_vehicles v
                 LEFT JOIN owned_vehicle_shares sh ON sh.vehicle_id = v.id AND sh.user_id = ?::uuid
                 WHERE v.id = s.vehicle_id AND (v.user_id = ?::uuid OR sh.permission = 'editor' OR (? AND v.purpose <> 'personal'))
@@ -237,9 +238,25 @@ class TelemetryRepository(private val database: Database) {
         }
     }
 
+    fun restore(userId: String, sessionId: String, isAdmin: Boolean = false): TelemetrySession? = database.withConnection { connection ->
+        connection.prepareStatement(
+            """UPDATE telemetry_sessions s SET status = 'active', archived_at = NULL
+            FROM owned_vehicles v
+            LEFT JOIN owned_vehicle_shares sh ON sh.vehicle_id = v.id AND sh.user_id = ?::uuid
+            WHERE s.id = ?::uuid AND s.status = 'archived' AND s.vehicle_id = v.id AND (v.user_id = ?::uuid OR sh.permission = 'editor' OR (? AND v.purpose <> 'personal'))
+            RETURNING s.*"""
+        ).use { statement ->
+            statement.setString(1, userId)
+            statement.setString(2, sessionId)
+            statement.setString(3, userId)
+            statement.setBoolean(4, isAdmin)
+            statement.executeQuery().use { result -> if (result.next()) result.toSession() else null }
+        }
+    }
+
     fun saveReport(userId: String, sessionId: String, draft: ReportDraft, isAdmin: Boolean = false): DriveReport = database.withConnection { connection ->
         require(draft.title.isNotBlank() && draft.overview.isNotBlank())
-        val canEdit = connection.prepareStatement("""SELECT 1 FROM telemetry_sessions s JOIN owned_vehicles v ON v.id=s.vehicle_id LEFT JOIN owned_vehicle_shares sh ON sh.vehicle_id = v.id AND sh.user_id = ?::uuid WHERE s.id=?::uuid AND (v.user_id=?::uuid OR sh.permission = 'editor' OR (? AND v.purpose <> 'personal'))""").use { statement -> statement.setString(1, userId); statement.setString(2, sessionId); statement.setString(3, userId); statement.setBoolean(4, isAdmin); statement.executeQuery().use { it.next() } }
+        val canEdit = connection.prepareStatement("""SELECT 1 FROM telemetry_sessions s JOIN owned_vehicles v ON v.id=s.vehicle_id LEFT JOIN owned_vehicle_shares sh ON sh.vehicle_id = v.id AND sh.user_id = ?::uuid WHERE s.id=?::uuid AND s.status = 'active' AND (v.user_id=?::uuid OR sh.permission = 'editor' OR (? AND v.purpose <> 'personal'))""").use { statement -> statement.setString(1, userId); statement.setString(2, sessionId); statement.setString(3, userId); statement.setBoolean(4, isAdmin); statement.executeQuery().use { it.next() } }
         require(canEdit)
         val id = UUID.randomUUID(); val token = UUID.randomUUID().toString().replace("-", "")
         connection.prepareStatement("""INSERT INTO drive_reports (id,session_id,public_token,title,overview,observations_json)
@@ -254,24 +271,24 @@ class TelemetryRepository(private val database: Database) {
     fun publish(userId: String, sessionId: String, access: PublishReportRequest, isAdmin: Boolean = false): DriveReport? {
         require(access.visibility in setOf("private", "customer", "public"))
         require(access.visibility != "customer" || access.viewerUserId != null)
-        database.withConnection { c -> c.prepareStatement("""UPDATE drive_reports r SET status='published',published_at=NOW(),visibility=?,viewer_user_id=?::uuid,updated_at=NOW() FROM telemetry_sessions s JOIN owned_vehicles v ON v.id=s.vehicle_id LEFT JOIN owned_vehicle_shares sh ON sh.vehicle_id = v.id AND sh.user_id = ?::uuid WHERE r.session_id=s.id AND s.id=?::uuid AND (v.user_id=?::uuid OR sh.permission = 'editor' OR (? AND v.purpose <> 'personal')) AND (? <> 'customer' OR EXISTS (SELECT 1 FROM users u WHERE u.id=?::uuid))""").use {
+        database.withConnection { c -> c.prepareStatement("""UPDATE drive_reports r SET status='published',published_at=NOW(),visibility=?,viewer_user_id=?::uuid,updated_at=NOW() FROM telemetry_sessions s JOIN owned_vehicles v ON v.id=s.vehicle_id LEFT JOIN owned_vehicle_shares sh ON sh.vehicle_id = v.id AND sh.user_id = ?::uuid WHERE r.session_id=s.id AND s.id=?::uuid AND s.status = 'active' AND (v.user_id=?::uuid OR sh.permission = 'editor' OR (? AND v.purpose <> 'personal')) AND (? <> 'customer' OR EXISTS (SELECT 1 FROM users u WHERE u.id=?::uuid))""").use {
             it.setString(1,access.visibility);it.setString(2,access.viewerUserId);it.setString(3,userId);it.setString(4,sessionId);it.setString(5,userId);it.setBoolean(6,isAdmin);it.setString(7,access.visibility);it.setString(8,access.viewerUserId);it.executeUpdate()
         } }
         return reportForUser(userId,sessionId,isAdmin)
     }
     fun accessibleReport(token: String, viewer: AuthUser?): DriveReport? = database.withConnection { c ->
         val admin = viewer?.role == "admin"
-        queryReport(c.prepareStatement(reportSQL()+" WHERE r.public_token=? AND r.status='published' AND (r.visibility='public' OR ? OR v.user_id=?::uuid OR r.viewer_user_id=?::uuid OR EXISTS (SELECT 1 FROM owned_vehicle_shares sh WHERE sh.vehicle_id = v.id AND sh.user_id = ?::uuid))").apply {
+        queryReport(c.prepareStatement(reportSQL()+" WHERE r.public_token=? AND r.status='published' AND s.status = 'active' AND (r.visibility='public' OR ? OR v.user_id=?::uuid OR r.viewer_user_id=?::uuid OR EXISTS (SELECT 1 FROM owned_vehicle_shares sh WHERE sh.vehicle_id = v.id AND sh.user_id = ?::uuid))").apply {
             setString(1,token);setBoolean(2,admin);setString(3,viewer?.id);setString(4,viewer?.id);setString(5,viewer?.id)
         })
     }
-    private fun reportForUser(userId:String, sessionId:String, isAdmin:Boolean = false):DriveReport? = database.withConnection { c -> queryReport(c.prepareStatement(reportSQL()+" WHERE s.id=?::uuid AND (v.user_id=?::uuid OR EXISTS (SELECT 1 FROM owned_vehicle_shares sh WHERE sh.vehicle_id = v.id AND sh.user_id = ?::uuid) OR (? AND v.purpose <> 'personal'))").apply {setString(1,sessionId);setString(2,userId);setString(3,userId);setBoolean(4,isAdmin)}) }
+    private fun reportForUser(userId:String, sessionId:String, isAdmin:Boolean = false):DriveReport? = database.withConnection { c -> queryReport(c.prepareStatement(reportSQL()+" WHERE s.id=?::uuid AND s.status = 'active' AND (v.user_id=?::uuid OR EXISTS (SELECT 1 FROM owned_vehicle_shares sh WHERE sh.vehicle_id = v.id AND sh.user_id = ?::uuid) OR (? AND v.purpose <> 'personal'))").apply {setString(1,sessionId);setString(2,userId);setString(3,userId);setBoolean(4,isAdmin)}) }
     private fun reportSQL()="""SELECT r.*,s.label session_label,s.started_at,s.source,s.metrics_json,v.year,v.make,v.model,v.user_id owner_user_id FROM drive_reports r JOIN telemetry_sessions s ON s.id=r.session_id JOIN owned_vehicles v ON v.id=s.vehicle_id"""
     private fun queryReport(statement:java.sql.PreparedStatement):DriveReport? = statement.use { s -> s.executeQuery().use { r -> if(!r.next()) null else {
         val metrics: List<MetricSummary> = json.decodeFromString(r.getString("metrics_json"))
         DriveReport(r.getString("id"),r.getString("session_id"),r.getString("public_token"),r.getString("title"),r.getString("overview"),json.decodeFromString(r.getString("observations_json")),r.getString("status"),r.getObject("published_at")?.toString(),"${r.getInt("year")} ${r.getString("make")} ${r.getString("model")}",r.getString("session_label"),r.getString("started_at"),r.getString("source"),metrics,MetricReferences.assess(metrics),r.getString("visibility"),r.getString("viewer_user_id"))
     } } }
-    private fun ResultSet.toSession()=TelemetrySession(getString("id"),getString("vehicle_id"),getString("external_session_id"),getString("label"),getString("started_at"),getLong("duration_ms"),getLong("samples"),getLong("obd_requests"),getLong("obd_errors"),getString("source"),json.decodeFromString(getString("metrics_json")),getString("imported_at"),(getObject("recorded_mileage") as? Number)?.toInt())
+    private fun ResultSet.toSession()=TelemetrySession(getString("id"),getString("vehicle_id"),getString("external_session_id"),getString("label"),getString("started_at"),getLong("duration_ms"),getLong("samples"),getLong("obd_requests"),getLong("obd_errors"),getString("source"),json.decodeFromString(getString("metrics_json")),getString("imported_at"),(getObject("recorded_mileage") as? Number)?.toInt(),getString("status") ?: "active",getObject("archived_at")?.toString())
     private fun ResultSet.toIntakeSession()=TelemetryIntakeSession(getString("id"),getString("external_session_id"),getString("label"),getString("started_at"),getLong("duration_ms"),getLong("samples"),getLong("obd_requests"),getLong("obd_errors"),getString("source"),json.decodeFromString(getString("metrics_json")),(getObject("recorded_mileage") as? Number)?.toInt(),TelemetryVehicleIdentity((getObject("detected_year") as? Number)?.toInt(),getString("detected_make"),getString("detected_model"),getString("detected_trim"),getString("detected_vin"),getString("detected_profile_id")),getString("status"),getString("assigned_vehicle_id"),getString("created_at"),getString("updated_at"))
     private fun ResultSet.toIntakeImport()=TelemetryIntakeImport(getString("external_session_id"),getString("label"),getString("started_at"),getLong("duration_ms"),getLong("samples"),getLong("obd_requests"),getLong("obd_errors"),getString("source"),json.decodeFromString(getString("metrics_json")),(getObject("recorded_mileage") as? Number)?.toInt(),TelemetryVehicleIdentity((getObject("detected_year") as? Number)?.toInt(),getString("detected_make"),getString("detected_model"),getString("detected_trim"),getString("detected_vin"),getString("detected_profile_id")))
 }

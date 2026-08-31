@@ -1,9 +1,9 @@
-import { Activity, Bot, Car, Check, Copy, Edit3, ExternalLink, FileUp, FolderUp, Save, Send, Sparkles, Trash2, X } from "lucide-react";
+import { Activity, Archive, Bot, Car, Check, Copy, Edit3, ExternalLink, FileUp, FolderUp, RotateCcw, Save, Send, Sparkles, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 
-import { analyzeTelemetry, assignTelemetryIntake, bulkImportTelemetrySessions, createFleetVehicle, currentUser, deleteTelemetrySession, getDriveReportForSession, importTelemetrySession, listFleet, listTelemetryIntake, listTelemetrySessions, listUsers, publishDriveReport, saveDriveReport, updateTelemetrySession } from "@/api/client";
+import { analyzeTelemetry, assignTelemetryIntake, bulkImportTelemetrySessions, createFleetVehicle, currentUser, deleteTelemetrySession, getDriveReportForSession, importTelemetrySession, listFleet, listTelemetryIntake, listTelemetrySessions, listUsers, publishDriveReport, restoreTelemetrySession, saveDriveReport, updateTelemetrySession } from "@/api/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -36,15 +36,18 @@ export function TelemetryInboxPage() {
   const [aiOpen, setAiOpen] = useState(false);
   const [aiAnalysis, setAiAnalysis] = useState<MirageAIAnalysis>();
   const [intakeVehicleIds, setIntakeVehicleIds] = useState<Record<string, string>>({});
+  const [sessionView, setSessionView] = useState<"active" | "archived">("active");
   const { data: fleet = [] } = useQuery({ queryKey: ["fleet"], queryFn: listFleet });
-  const { data: sessions = [] } = useQuery({ queryKey: ["telemetry-sessions"], queryFn: () => listTelemetrySessions() });
+  const { data: sessions = [] } = useQuery({ queryKey: ["telemetry-sessions", "active"], queryFn: () => listTelemetrySessions(undefined, "active") });
+  const { data: archivedSessions = [] } = useQuery({ queryKey: ["telemetry-sessions", "archived"], queryFn: () => listTelemetrySessions(undefined, "archived") });
   const { data: intake = [] } = useQuery({ queryKey: ["telemetry-intake"], queryFn: listTelemetryIntake });
   const { data: signedInUser } = useQuery({ queryKey: ["auth-user"], queryFn: currentUser, retry: false });
   const { data: users = [] } = useQuery({ queryKey: ["users"], queryFn: listUsers, enabled: signedInUser?.role === "admin" });
   const customers = users.filter((user) => user.role !== "admin");
+  const displayedSessions = sessionView === "active" ? sessions : archivedSessions;
   const sessionsByVehicle = useMemo(() => {
     const groups = new Map<string, { vehicle?: FleetVehicle; sessions: TelemetrySession[] }>();
-    sessions.forEach((session) => {
+    displayedSessions.forEach((session) => {
       const vehicle = fleet.find((item) => item.id === session.vehicleId);
       const key = vehicle?.id ?? session.vehicleId;
       const group = groups.get(key) ?? { vehicle, sessions: [] };
@@ -57,7 +60,7 @@ export function TelemetryInboxPage() {
       const bLabel = b.vehicle ? vehicleDisplayName(b.vehicle) : "Unknown vehicle";
       return aLabel.localeCompare(bLabel);
     });
-  }, [fleet, sessions]);
+  }, [displayedSessions, fleet]);
 
   const likelyMatch = useMemo(() => fleet.find((vehicle) =>
     (detected.vin && vehicle.vin?.toUpperCase() === detected.vin) ||
@@ -100,7 +103,7 @@ export function TelemetryInboxPage() {
       const key = path.includes("/") ? path.split("/").slice(0, -1).join("/") : file.name.replace(/\.(json|jsonl)$/i, "");
       groups.set(key, [...(groups.get(key) ?? []), file]);
     });
-    const knownIds = new Set([...sessions.map((item) => item.externalSessionId), ...intake.map((item) => item.externalSessionId)]);
+    const knownIds = new Set([...sessions.map((item) => item.externalSessionId), ...archivedSessions.map((item) => item.externalSessionId), ...intake.map((item) => item.externalSessionId)]);
     const imports: TelemetryIntakeImport[] = [];
     let skippedLocal = 0;
     for (const filesInGroup of groups.values()) {
@@ -159,8 +162,17 @@ export function TelemetryInboxPage() {
     onSuccess: (_, sessionId) => {
       client.invalidateQueries({ queryKey: ["telemetry-sessions"] });
       setReports((current) => { const next = { ...current }; delete next[sessionId]; return next; });
-      setMessage("The telemetry drive and its report were deleted.");
+      setMessage("Drive archived. Bulk upload will keep recognizing it as already handled.");
     },
+  });
+
+  const restoreSession = useMutation({
+    mutationFn: restoreTelemetrySession,
+    onSuccess: () => {
+      client.invalidateQueries({ queryKey: ["telemetry-sessions"] });
+      setMessage("Drive restored to the active telemetry inbox.");
+    },
+    onError: () => setMessage("Unable to restore that archived drive."),
   });
 
   const bulkImport = useMutation({
@@ -349,9 +361,9 @@ export function TelemetryInboxPage() {
         </label>
       </div>
       <div className="mt-5 grid gap-3 text-sm text-mirage-muted md:grid-cols-3">
-        <Metric label="Known drives" value={String(sessions.length)} />
+        <Metric label="Active drives" value={String(sessions.length)} />
+        <Metric label="Archived" value={String(archivedSessions.length)} />
         <Metric label="Queued" value={String(intake.length)} />
-        <Metric label="Matching rule" value="VIN first" />
       </div>
     </Card>
     <Card className="mt-8 p-5 lg:p-6">
@@ -426,6 +438,16 @@ export function TelemetryInboxPage() {
       </Card>
     )}
     <div className="mt-8 grid gap-5">
+      <div className="flex flex-wrap gap-2">
+        <Button variant={sessionView === "active" ? "primary" : "secondary"} onClick={() => setSessionView("active")}>
+          <Activity size={16} />
+          Active drives ({sessions.length})
+        </Button>
+        <Button variant={sessionView === "archived" ? "primary" : "secondary"} onClick={() => setSessionView("archived")}>
+          <Archive size={16} />
+          Archived ({archivedSessions.length})
+        </Button>
+      </div>
       {sessionsByVehicle.map((group) => {
         const vehicle = group.vehicle;
         return (
@@ -504,39 +526,52 @@ export function TelemetryInboxPage() {
                         </p>
                       </div>
                       <div className="flex flex-wrap gap-2">
-                        <Button variant="secondary" onClick={() => openReport(session.id)}>
-                          <ExternalLink size={15} />
-                          Open report
-                        </Button>
-                        <Button variant="ghost" onClick={() => setRenaming({ [session.id]: session.label })}>
-                          <Edit3 size={15} />
-                          Rename
-                        </Button>
-                        <Button variant="ghost" onClick={() => draftReport(session.id)}>
-                          Manage access
-                        </Button>
-                        {report?.status === "published" && (
+                        {sessionView === "active" ? (
+                          <>
+                            <Button variant="secondary" onClick={() => openReport(session.id)}>
+                              <ExternalLink size={15} />
+                              Open report
+                            </Button>
+                            <Button variant="ghost" onClick={() => setRenaming({ [session.id]: session.label })}>
+                              <Edit3 size={15} />
+                              Rename
+                            </Button>
+                            <Button variant="ghost" onClick={() => draftReport(session.id)}>
+                              Manage access
+                            </Button>
+                            {report?.status === "published" && (
+                              <Button
+                                variant="ghost"
+                                onClick={() => navigator.clipboard.writeText(`${location.origin}/drive-reports/${report.publicToken}`)}
+                              >
+                                <Copy size={15} />
+                                Copy link
+                              </Button>
+                            )}
+                            <Button
+                              variant="danger"
+                              disabled={removeSession.isPending}
+                              onClick={() => {
+                                if (window.confirm("Archive this telemetry drive? Bulk upload will still recognize it as already handled.")) removeSession.mutate(session.id);
+                              }}
+                            >
+                              <Archive size={15} />
+                              Archive
+                            </Button>
+                          </>
+                        ) : (
                           <Button
-                            variant="ghost"
-                            onClick={() => navigator.clipboard.writeText(`${location.origin}/drive-reports/${report.publicToken}`)}
+                            variant="secondary"
+                            disabled={restoreSession.isPending}
+                            onClick={() => restoreSession.mutate(session.id)}
                           >
-                            <Copy size={15} />
-                            Copy link
+                            <RotateCcw size={15} />
+                            Restore
                           </Button>
                         )}
-                        <Button
-                          variant="danger"
-                          disabled={removeSession.isPending}
-                          onClick={() => {
-                            if (window.confirm("Delete this telemetry drive and its associated report? This cannot be undone.")) removeSession.mutate(session.id);
-                          }}
-                        >
-                          <Trash2 size={15} />
-                          Delete drive
-                        </Button>
                       </div>
                     </div>
-                    {report && (
+                    {sessionView === "active" && report && (
                       <>
                         <p className="mt-4 border-l-2 border-mirage-cyan pl-4 text-sm text-mirage-muted">
                           {report.overview}

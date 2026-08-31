@@ -198,10 +198,11 @@ export async function removeFleetVehicleShare(
 }
 export async function listTelemetrySessions(
   vehicleId?: string,
+  status: "active" | "archived" = "active",
 ): Promise<TelemetrySession[]> {
-  return request<TelemetrySession[]>(
-    `/telemetry-sessions${vehicleId ? `?vehicleId=${encodeURIComponent(vehicleId)}` : ""}`,
-  );
+  const params = new URLSearchParams({ status });
+  if (vehicleId) params.set("vehicleId", vehicleId);
+  return request<TelemetrySession[]>(`/telemetry-sessions?${params.toString()}`);
 }
 export async function listTelemetryIntake(): Promise<TelemetryIntakeSession[]> {
   return request<TelemetryIntakeSession[]>("/telemetry-sessions/intake");
@@ -233,6 +234,9 @@ export async function assignTelemetryIntake(
 }
 export async function deleteTelemetrySession(sessionId: string): Promise<void> {
   await request<void>(`/telemetry-sessions/${sessionId}`, { method: "DELETE" });
+}
+export async function restoreTelemetrySession(sessionId: string): Promise<TelemetrySession> {
+  return request<TelemetrySession>(`/telemetry-sessions/${sessionId}/restore`, { method: "PUT" });
 }
 export async function listProspects(): Promise<ProspectReport[]> {
   return request<ProspectReport[]>("/prospects");

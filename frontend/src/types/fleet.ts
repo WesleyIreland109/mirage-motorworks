@@ -88,6 +88,8 @@ export interface TelemetrySession extends Omit<SessionImport, "vehicleId"> {
   id: string;
   vehicleId: string;
   importedAt: string;
+  status: "active" | "archived";
+  archivedAt?: string;
 }
 export interface TelemetryVehicleIdentity {
   year?: number;

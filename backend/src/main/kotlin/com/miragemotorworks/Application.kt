@@ -287,7 +287,12 @@ fun Application.module(config: AppConfig, vehicles: VehicleRepository, auth: Aut
         route("/api/telemetry-sessions") {
             get {
                 val user = call.authenticatedUser(auth) ?: return@get
-                call.respond(telemetry.list(user.id, call.request.queryParameters["vehicleId"], user.role == "admin"))
+                val status = call.request.queryParameters["status"] ?: "active"
+                if (status !in setOf("active", "archived")) {
+                    call.respond(HttpStatusCode.BadRequest, mapOf("message" to "Telemetry status must be active or archived."))
+                    return@get
+                }
+                call.respond(telemetry.list(user.id, call.request.queryParameters["vehicleId"], user.role == "admin", status))
             }
             get("/intake") {
                 val user = call.authenticatedUser(auth) ?: return@get
@@ -321,6 +326,11 @@ fun Application.module(config: AppConfig, vehicles: VehicleRepository, auth: Aut
                     .onSuccess { call.respond(HttpStatusCode.Created, it) }
                     .onFailure { call.respond(HttpStatusCode.BadRequest, mapOf("message" to "Invalid or unauthorized session import")) }
             }
+            put("/{id}/restore") {
+                val user = call.authenticatedUser(auth) ?: return@put
+                val session = runCatching { telemetry.restore(user.id, call.parameters["id"].orEmpty(), user.role == "admin") }.getOrNull()
+                if (session == null) call.respond(HttpStatusCode.NotFound, mapOf("message" to "Archived telemetry session not found")) else call.respond(session)
+            }
             put("/{id}") {
                 val user = call.authenticatedUser(auth) ?: return@put
                 val session = runCatching { telemetry.update(user.id, call.parameters["id"].orEmpty(), call.receive<TelemetrySessionUpdate>(), user.role == "admin") }.getOrNull()
@@ -328,8 +338,8 @@ fun Application.module(config: AppConfig, vehicles: VehicleRepository, auth: Aut
             }
             delete("/{id}") {
                 val user = call.authenticatedUser(auth) ?: return@delete
-                val deleted = runCatching { telemetry.delete(user.id, call.parameters["id"].orEmpty(), user.role == "admin") }.getOrDefault(false)
-                if (deleted) call.respond(HttpStatusCode.NoContent)
+                val archived = runCatching { telemetry.archive(user.id, call.parameters["id"].orEmpty(), user.role == "admin") }.getOrDefault(false)
+                if (archived) call.respond(HttpStatusCode.NoContent)
                 else call.respond(HttpStatusCode.NotFound, mapOf("message" to "Telemetry session not found"))
             }
             get("/{id}/report") {
