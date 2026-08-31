@@ -31,12 +31,15 @@ const metricLabels: Record<string, string> = {
   rpm: "Engine speed", vehicle_speed_mph: "Vehicle speed", coolant_temp_f: "Coolant temperature",
   intake_air_temp_f: "Intake temperature", throttle_percent: "Throttle position",
   engine_load_percent: "Calculated engine load", fuel_level_percent: "Fuel level",
-  battery_voltage: "Control-module voltage",
+  battery_voltage: "Control-module voltage", oil_temp_f: "Oil temperature",
+  boost_psi: "Boost / vacuum", afr: "Air/fuel ratio", lambda: "Lambda",
+  fuel_pressure_psi: "Fuel pressure", ignition_timing: "Ignition timing",
+  provider_latency_ms: "Diagnostic response latency",
 };
 const metricUnits: Record<string, string> = {
   rpm: "RPM", vehicle_speed_mph: "mph", throttle_percent: "%", engine_load_percent: "%",
   battery_voltage: "V", coolant_temp_f: "°F", oil_temp_f: "°F", intake_air_temp_f: "°F",
-  provider_latency_ms: "ms",
+  provider_latency_ms: "ms", boost_psi: "psi", afr: "AFR", lambda: "λ", fuel_pressure_psi: "psi",
 };
 
 function field(value: IdentityField): string | undefined {

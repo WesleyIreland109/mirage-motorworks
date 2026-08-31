@@ -79,6 +79,31 @@ export const dacoitDriveReport: DriveReport = {
       max: 65,
     },
   ],
-  assessments: [],
+  assessments: [
+    {
+      key: "rpm",
+      referenceLow: 500,
+      referenceHigh: 7200,
+      status: "mixed",
+      description: "Broad engine-speed plausibility guidance. Hybrid engine-off samples can fall below this range.",
+      referenceType: "generic_guidance",
+    },
+    {
+      key: "battery_voltage",
+      referenceLow: 11.8,
+      referenceHigh: 15.2,
+      status: "within",
+      description: "Broad control-module voltage guidance; charging strategy varies by vehicle.",
+      referenceType: "generic_guidance",
+    },
+    {
+      key: "engine_load_percent",
+      referenceLow: 0,
+      referenceHigh: 100,
+      status: "within",
+      description: "Standardized PID bounds; driving demand determines the expected value.",
+      referenceType: "generic_guidance",
+    },
+  ],
   visibility: "private",
 };
