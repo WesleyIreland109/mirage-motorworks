@@ -23,19 +23,19 @@ class AuthRepository(private val database: Database) {
         }
         require(PasswordPolicy.isValid(password)) { "Bootstrap admin password does not meet password requirements" }
 
+        val normalizedEmail = email.trim().lowercase()
         database.withConnection { connection ->
-            connection.prepareStatement("SELECT COUNT(*) FROM users").use { statement ->
-                statement.executeQuery().use { result ->
-                    result.next()
-                    if (result.getInt(1) > 0) return@withConnection
-                }
-            }
             connection.prepareStatement(
-                "INSERT INTO users (id, email, display_name, password_hash, role) VALUES (?, ?, ?, ?, 'admin')"
+                """INSERT INTO users (id, email, display_name, password_hash, role)
+                VALUES (?, ?, ?, ?, 'admin')
+                ON CONFLICT (email) DO UPDATE SET
+                    password_hash = EXCLUDED.password_hash,
+                    role = 'admin',
+                    updated_at = NOW()"""
             ).use { statement ->
                 statement.setObject(1, UUID.randomUUID())
-                statement.setString(2, email)
-                statement.setString(3, email.substringBefore('@'))
+                statement.setString(2, normalizedEmail)
+                statement.setString(3, normalizedEmail.substringBefore('@'))
                 statement.setString(4, PasswordHasher.hash(password))
                 statement.executeUpdate()
             }
