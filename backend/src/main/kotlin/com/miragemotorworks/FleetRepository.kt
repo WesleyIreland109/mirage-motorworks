@@ -265,6 +265,19 @@ class FleetRepository(private val database: Database) {
         }
     }
 
+    private fun canEditVehicle(connection: Connection, userId: String, vehicleId: String, isAdmin: Boolean): Boolean =
+        connection.prepareStatement(
+            """SELECT 1 FROM owned_vehicles v
+            LEFT JOIN owned_vehicle_shares s ON s.vehicle_id = v.id AND s.user_id = ?::uuid
+            WHERE v.id = ?::uuid AND (v.user_id = ?::uuid OR s.permission = 'editor' OR (? AND v.purpose <> 'personal'))"""
+        ).use { statement ->
+            statement.setString(1, userId)
+            statement.setString(2, vehicleId)
+            statement.setString(3, userId)
+            statement.setBoolean(4, isAdmin)
+            statement.executeQuery().use { it.next() }
+        }
+
     private fun findOwned(connection: Connection, userId: String, id: String): FleetVehicle? = connection.prepareStatement(
         "SELECT *, 'owner' AS access_role FROM owned_vehicles WHERE id = ?::uuid AND user_id = ?::uuid"
     ).use { statement -> statement.setString(1, id); statement.setString(2, userId); statement.executeQuery().use { if (it.next()) it.toFleetVehicle(connection) else null } }
