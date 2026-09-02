@@ -3,7 +3,7 @@ package com.miragemotorworks
 import kotlinx.serialization.Serializable
 
 @Serializable data class MetricSummary(val key: String, val label: String, val unit: String, val samples: Long, val min: Double, val average: Double, val max: Double)
-@Serializable data class SessionImport(val vehicleId: String, val externalSessionId: String, val label: String, val startedAt: String, val durationMs: Long, val samples: Long, val obdRequests: Long, val obdErrors: Long, val source: String, val metrics: List<MetricSummary>, val recordedMileage: Int? = null)
+@Serializable data class SessionImport(val vehicleId: String, val externalSessionId: String, val label: String, val startedAt: String, val durationMs: Long, val samples: Long, val obdRequests: Long, val obdErrors: Long, val source: String, val metrics: List<MetricSummary>, val recordedMileage: Int? = null, val detectedVehicle: TelemetryVehicleIdentity = TelemetryVehicleIdentity())
 @Serializable data class TelemetrySession(val id: String, val vehicleId: String, val externalSessionId: String, val label: String, val startedAt: String, val durationMs: Long, val samples: Long, val obdRequests: Long, val obdErrors: Long, val source: String, val metrics: List<MetricSummary>, val importedAt: String, val recordedMileage: Int? = null, val status: String = "active", val archivedAt: String? = null)
 @Serializable data class TelemetrySessionUpdate(val label: String)
 @Serializable data class TelemetryVehicleIdentity(val year: Int? = null, val make: String? = null, val model: String? = null, val trim: String? = null, val vin: String? = null, val profileId: String? = null)

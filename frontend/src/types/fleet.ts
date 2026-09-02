@@ -83,6 +83,7 @@ export interface SessionImport {
   source: "vehicle" | "simulator" | "unknown";
   metrics: MetricSummary[];
   recordedMileage?: number;
+  detectedVehicle?: TelemetryVehicleIdentity;
 }
 export interface TelemetrySession extends Omit<SessionImport, "vehicleId"> {
   id: string;

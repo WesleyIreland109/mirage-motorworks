@@ -243,6 +243,7 @@ export function TelemetryInboxPage() {
         startedAt: summary.startedAt ?? new Date().toISOString(), durationMs: summary.durationMs ?? 0,
         samples: summary.samples ?? 0, obdRequests: summary.obdRequests ?? 0, obdErrors: summary.obdErrors ?? 0,
         source: parsed.source, metrics: parsed.metrics, recordedMileage: mileage ? Number(mileage) : undefined,
+        detectedVehicle: detected,
       });
     },
     onSuccess: async (session) => {

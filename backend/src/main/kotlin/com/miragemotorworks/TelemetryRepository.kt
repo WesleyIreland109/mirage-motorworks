@@ -20,23 +20,7 @@ class TelemetryRepository(private val database: Database) {
             statement.executeQuery().use { it.next() }
         }
         require(canEditVehicle)
-        val id = UUID.randomUUID()
-        connection.prepareStatement("""INSERT INTO telemetry_sessions
-            (id, vehicle_id, external_session_id, label, started_at, duration_ms, samples, obd_requests, obd_errors, source, metrics_json, recorded_mileage)
-            VALUES (?, ?::uuid, ?, ?, ?::timestamptz, ?, ?, ?, ?, ?, ?::jsonb, ?)
-            ON CONFLICT (vehicle_id, external_session_id) DO UPDATE SET label=EXCLUDED.label, metrics_json=EXCLUDED.metrics_json, recorded_mileage=EXCLUDED.recorded_mileage
-            RETURNING *""").use { statement ->
-            statement.setObject(1, id); statement.setString(2, input.vehicleId); statement.setString(3, input.externalSessionId)
-            statement.setString(4, input.label); statement.setString(5, input.startedAt); statement.setLong(6, input.durationMs)
-            statement.setLong(7, input.samples); statement.setLong(8, input.obdRequests); statement.setLong(9, input.obdErrors)
-            statement.setString(10, input.source); statement.setString(11, json.encodeToString(input.metrics))
-            if (input.recordedMileage == null) statement.setNull(12, java.sql.Types.INTEGER) else statement.setInt(12, input.recordedMileage)
-            val session = statement.executeQuery().use { result -> result.next(); result.toSession() }
-            if (input.recordedMileage != null) connection.prepareStatement("UPDATE owned_vehicles SET mileage = ?, updated_at = NOW() WHERE id = ?::uuid").use {
-                it.setInt(1, input.recordedMileage); it.setString(2, input.vehicleId); it.executeUpdate()
-            }
-            session
-        }
+        insertTelemetrySession(connection, input.vehicleId, input.toIntakeImport())
     }
 
     fun list(userId: String, vehicleId: String? = null, isAdmin: Boolean = false, status: String = "active"): List<TelemetrySession> = database.withConnection { connection ->
@@ -191,12 +175,63 @@ class TelemetryRepository(private val database: Database) {
             if (input.recordedMileage == null) statement.setNull(12, java.sql.Types.INTEGER) else statement.setInt(12, input.recordedMileage)
             statement.executeQuery().use { result -> result.next(); result.toSession() }
         }
-        if (input.recordedMileage != null) connection.prepareStatement("UPDATE owned_vehicles SET mileage = ?, updated_at = NOW() WHERE id = ?::uuid").use {
-            it.setInt(1, input.recordedMileage)
-            it.setString(2, vehicleId)
-            it.executeUpdate()
-        }
+        syncVehicleFromTelemetry(connection, vehicleId, input)
         return session
+    }
+
+    private fun SessionImport.toIntakeImport() = TelemetryIntakeImport(
+        externalSessionId,
+        label,
+        startedAt,
+        durationMs,
+        samples,
+        obdRequests,
+        obdErrors,
+        source,
+        metrics,
+        recordedMileage,
+        detectedVehicle
+    )
+
+    private fun syncVehicleFromTelemetry(connection: java.sql.Connection, vehicleId: String, input: TelemetryIntakeImport) {
+        val normalizedVin = input.detectedVehicle.vin?.trim()?.uppercase()?.takeIf { it.length == 17 }
+        if (input.recordedMileage == null && normalizedVin == null) return
+        connection.prepareStatement(
+            """UPDATE owned_vehicles
+            SET
+                mileage = CASE
+                    WHEN ?::integer IS NOT NULL AND ?::timestamptz >= (
+                        SELECT MAX(started_at) FROM telemetry_sessions WHERE vehicle_id = ?::uuid AND status = 'active'
+                    ) THEN ?::integer
+                    ELSE mileage
+                END,
+                vin = CASE
+                    WHEN (vin IS NULL OR btrim(vin) = '') AND ?::text IS NOT NULL THEN ?::text
+                    ELSE vin
+                END,
+                updated_at = CASE
+                    WHEN (?::integer IS NOT NULL AND ?::timestamptz >= (
+                        SELECT MAX(started_at) FROM telemetry_sessions WHERE vehicle_id = ?::uuid AND status = 'active'
+                    ))
+                    OR ((vin IS NULL OR btrim(vin) = '') AND ?::text IS NOT NULL)
+                    THEN NOW()
+                    ELSE updated_at
+                END
+            WHERE id = ?::uuid"""
+        ).use { statement ->
+            if (input.recordedMileage == null) statement.setNull(1, java.sql.Types.INTEGER) else statement.setInt(1, input.recordedMileage)
+            statement.setString(2, input.startedAt)
+            statement.setString(3, vehicleId)
+            if (input.recordedMileage == null) statement.setNull(4, java.sql.Types.INTEGER) else statement.setInt(4, input.recordedMileage)
+            statement.setString(5, normalizedVin)
+            statement.setString(6, normalizedVin)
+            if (input.recordedMileage == null) statement.setNull(7, java.sql.Types.INTEGER) else statement.setInt(7, input.recordedMileage)
+            statement.setString(8, input.startedAt)
+            statement.setString(9, vehicleId)
+            statement.setString(10, normalizedVin)
+            statement.setString(11, vehicleId)
+            statement.executeUpdate()
+        }
     }
 
     private fun upsertIntakeSession(connection: java.sql.Connection, userId: String, input: TelemetryIntakeImport): TelemetryIntakeSession =
