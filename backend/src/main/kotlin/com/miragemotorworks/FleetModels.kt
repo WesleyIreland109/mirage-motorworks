@@ -89,7 +89,25 @@ data class FleetVehicle(
 )
 
 @Serializable
-data class TaskUpdate(val status: String, val notes: String? = null, val completedMileage: Int? = null)
+data class TaskInput(
+    val title: String,
+    val category: String = "General",
+    val priority: String = "routine",
+    val penalty: Int = 10,
+    val status: String = "accepted",
+    val notes: String = ""
+)
+
+@Serializable
+data class TaskUpdate(
+    val title: String? = null,
+    val category: String? = null,
+    val priority: String? = null,
+    val penalty: Int? = null,
+    val status: String,
+    val notes: String? = null,
+    val completedMileage: Int? = null
+)
 
 @Serializable
 data class FleetShareRequest(val userId: String, val permission: String = "editor")

@@ -33,6 +33,8 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { vehicleDisplayName } from "@/lib/fleetDisplay";
+import { cn } from "@/lib/utils";
+import { readinessColorClass } from "@/lib/readiness";
 import type {
   Condition,
   FleetVehicle,
@@ -520,7 +522,7 @@ export function AdminDashboard() {
                     <p className="text-sm text-mirage-muted">{vehicle.trim}</p>
                   </div>
                   <div className="flex items-center gap-4">
-                    <div className="relative grid h-20 w-20 place-items-center rounded-full border-4 border-mirage-cyan">
+                    <div className={cn("relative grid h-20 w-20 place-items-center rounded-full border-4", readinessColorClass(vehicle.readiness))}>
                       <span className="text-xl font-bold">
                         {vehicle.readiness}%
                       </span>

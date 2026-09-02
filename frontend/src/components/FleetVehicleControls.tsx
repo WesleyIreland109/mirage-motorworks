@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Edit3, Save, Trash2 } from "lucide-react";
+import type { ReactNode } from "react";
 import { useState } from "react";
 
 import { deleteFleetVehicle, updateFleetVehicle } from "@/api/client";
@@ -42,6 +43,23 @@ function updateFromVehicle(vehicle: FleetVehicle): FleetVehicleUpdate {
     acquisitionPriceCents: vehicle.acquisitionPriceCents,
     targetSalePriceCents: vehicle.targetSalePriceCents,
   };
+}
+
+function FieldBlock({
+  label,
+  children,
+}: {
+  label: string;
+  children: ReactNode;
+}) {
+  return (
+    <label className="block">
+      <span className="mb-1.5 block text-xs font-semibold uppercase tracking-[.14em] text-mirage-muted">
+        {label}
+      </span>
+      {children}
+    </label>
+  );
 }
 
 export function FleetVehicleControls({ vehicle }: { vehicle: FleetVehicle }) {
@@ -133,41 +151,69 @@ export function FleetVehicleControls({ vehicle }: { vehicle: FleetVehicle }) {
       {editing && (
         <div className="mt-5">
           <div className="grid gap-3 md:grid-cols-4">
-            <Input inputMode="numeric" placeholder="Year" value={form.year} onChange={(event) => field("year", Number(event.target.value))} />
-            <Input placeholder="Make" value={form.make} onChange={(event) => field("make", event.target.value)} />
-            <Input placeholder="Model" value={form.model} onChange={(event) => field("model", event.target.value)} />
-            <Input placeholder="Nickname" value={form.nickname ?? ""} onChange={(event) => field("nickname", event.target.value)} />
-            <Input placeholder="Trim" value={form.trim} onChange={(event) => field("trim", event.target.value)} />
-            <Input type="number" placeholder="Mileage" value={form.mileage || ""} onChange={(event) => field("mileage", Number(event.target.value))} />
-            <Input placeholder="VIN" value={form.vin ?? ""} onChange={(event) => field("vin", event.target.value)} />
-            <Input placeholder="Primary use" value={form.primaryUse} onChange={(event) => field("primaryUse", event.target.value)} />
-            <Input
-              type="number"
-              placeholder="Annual miles"
-              value={form.annualMileage ?? ""}
-              onChange={(event) => field("annualMileage", event.target.value ? Number(event.target.value) : undefined)}
-            />
-            <select
-              className="h-11 border border-mirage-border bg-mirage-secondary px-3 text-sm"
-              value={form.purpose}
-              onChange={(event) => field("purpose", event.target.value as VehiclePurpose)}
-            >
-              {Object.entries(purposeLabels).map(([value, label]) => (
-                <option key={value} value={value}>
-                  {label}
-                </option>
-              ))}
-            </select>
-            <Input placeholder="Owner / customer" value={form.ownerName ?? ""} onChange={(event) => field("ownerName", event.target.value)} />
-            <Input placeholder="Purchase price" value={acquisitionPrice} onChange={(event) => setAcquisitionPrice(event.target.value)} />
-            <Input placeholder="Target sale price" value={targetPrice} onChange={(event) => setTargetPrice(event.target.value)} />
+            <FieldBlock label="Year">
+              <Input inputMode="numeric" placeholder="2021" value={form.year} onChange={(event) => field("year", Number(event.target.value))} />
+            </FieldBlock>
+            <FieldBlock label="Make">
+              <Input placeholder="Honda" value={form.make} onChange={(event) => field("make", event.target.value)} />
+            </FieldBlock>
+            <FieldBlock label="Model">
+              <Input placeholder="Civic Type R" value={form.model} onChange={(event) => field("model", event.target.value)} />
+            </FieldBlock>
+            <FieldBlock label="Nickname">
+              <Input placeholder="The R" value={form.nickname ?? ""} onChange={(event) => field("nickname", event.target.value)} />
+            </FieldBlock>
+            <FieldBlock label="Trim">
+              <Input placeholder="FK8 Touring Edition" value={form.trim} onChange={(event) => field("trim", event.target.value)} />
+            </FieldBlock>
+            <FieldBlock label="Mileage">
+              <Input type="number" placeholder="42500" value={form.mileage || ""} onChange={(event) => field("mileage", Number(event.target.value))} />
+            </FieldBlock>
+            <FieldBlock label="VIN">
+              <Input placeholder="17-character VIN" value={form.vin ?? ""} onChange={(event) => field("vin", event.target.value)} />
+            </FieldBlock>
+            <FieldBlock label="Primary use">
+              <Input placeholder="diagnostic, resale, daily" value={form.primaryUse} onChange={(event) => field("primaryUse", event.target.value)} />
+            </FieldBlock>
+            <FieldBlock label="Annual miles">
+              <Input
+                type="number"
+                placeholder="8000"
+                value={form.annualMileage ?? ""}
+                onChange={(event) => field("annualMileage", event.target.value ? Number(event.target.value) : undefined)}
+              />
+            </FieldBlock>
+            <FieldBlock label="GarageOS tab">
+              <select
+                className="h-11 w-full border border-mirage-border bg-mirage-secondary px-3 text-sm"
+                value={form.purpose}
+                onChange={(event) => field("purpose", event.target.value as VehiclePurpose)}
+              >
+                {Object.entries(purposeLabels).map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </FieldBlock>
+            <FieldBlock label="Owner / customer">
+              <Input placeholder="Customer or co-owner name" value={form.ownerName ?? ""} onChange={(event) => field("ownerName", event.target.value)} />
+            </FieldBlock>
+            <FieldBlock label="Purchase price">
+              <Input placeholder="50000" value={acquisitionPrice} onChange={(event) => setAcquisitionPrice(event.target.value)} />
+            </FieldBlock>
+            <FieldBlock label="Target sale price">
+              <Input placeholder="65000" value={targetPrice} onChange={(event) => setTargetPrice(event.target.value)} />
+            </FieldBlock>
           </div>
-          <Textarea
-            className="mt-3"
-            placeholder="Private notes"
-            value={form.notes}
-            onChange={(event) => field("notes", event.target.value)}
-          />
+          <FieldBlock label="Private notes">
+            <Textarea
+              className="mt-3"
+              placeholder="Work history, concerns, customer requests, and internal notes"
+              value={form.notes}
+              onChange={(event) => field("notes", event.target.value)}
+            />
+          </FieldBlock>
           {error && <p className="mt-3 text-sm text-mirage-orange">{error}</p>}
           <Button
             className="mt-4"

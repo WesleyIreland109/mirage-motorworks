@@ -261,6 +261,11 @@ fun Application.module(config: AppConfig, vehicles: VehicleRepository, auth: Aut
                 val deleted = runCatching { fleet.deleteVehicle(user.id, call.parameters["id"].orEmpty(), user.role == "admin") }.getOrDefault(false)
                 if (deleted) call.respond(HttpStatusCode.NoContent) else call.respond(HttpStatusCode.NotFound, mapOf("message" to "Vehicle not found"))
             }
+            post("/{id}/tasks") {
+                val user = call.authenticatedUser(auth) ?: return@post
+                val vehicle = runCatching { fleet.createTask(user.id, call.parameters["id"].orEmpty(), call.receive<TaskInput>(), user.role == "admin") }.getOrNull()
+                if (vehicle == null) call.respond(HttpStatusCode.NotFound, mapOf("message" to "Vehicle not found")) else call.respond(HttpStatusCode.Created, vehicle)
+            }
             put("/tasks/{id}") {
                 val user = call.authenticatedUser(auth) ?: return@put
                 val taskId = call.parameters["id"].orEmpty()

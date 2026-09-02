@@ -113,8 +113,50 @@ class FleetRepository(private val database: Database) {
         }
     }
 
+    fun createTask(userId: String, vehicleId: String, input: TaskInput, isAdmin: Boolean = false): FleetVehicle? {
+        val title = input.title.trim()
+        val category = input.category.trim().ifEmpty { "General" }
+        require(title.length in 1..180)
+        require(category.length in 1..80)
+        require(input.priority in setOf("verify", "routine", "important", "safety"))
+        require(input.status in setOf("suggested", "accepted", "in_progress", "completed", "deferred"))
+        require(input.penalty in 0..100)
+        require(input.notes.length <= 4000)
+        return database.withConnection { connection ->
+            connection.autoCommit = false
+            try {
+                if (!canEditVehicle(connection, userId, vehicleId, isAdmin)) return@withConnection null
+                connection.prepareStatement(
+                    """INSERT INTO maintenance_tasks
+                    (id, vehicle_id, title, category, priority, penalty, status, source, notes, completed_at, completed_mileage)
+                    SELECT ?, ?::uuid, ?, ?, ?, ?, ?, 'manual', ?, CASE WHEN ? = 'completed' THEN NOW() ELSE NULL END, CASE WHEN ? = 'completed' THEN mileage ELSE NULL END
+                    FROM owned_vehicles WHERE id = ?::uuid"""
+                ).use { statement ->
+                    statement.setObject(1, UUID.randomUUID())
+                    statement.setString(2, vehicleId)
+                    statement.setString(3, title)
+                    statement.setString(4, category)
+                    statement.setString(5, input.priority)
+                    statement.setInt(6, input.penalty)
+                    statement.setString(7, input.status)
+                    statement.setString(8, input.notes.trim())
+                    statement.setString(9, input.status)
+                    statement.setString(10, input.status)
+                    statement.setString(11, vehicleId)
+                    statement.executeUpdate()
+                }
+                connection.commit(); findAccessible(connection, userId, vehicleId, isAdmin)
+            } catch (exception: Exception) { connection.rollback(); throw exception } finally { connection.autoCommit = true }
+        }
+    }
+
     fun updateTask(userId: String, taskId: String, update: TaskUpdate, isAdmin: Boolean = false): FleetVehicle? {
         require(update.status in setOf("suggested", "accepted", "in_progress", "completed", "deferred"))
+        update.title?.let { require(it.trim().length in 1..180) }
+        update.category?.let { require(it.trim().length in 1..80) }
+        update.priority?.let { require(it in setOf("verify", "routine", "important", "safety")) }
+        update.penalty?.let { require(it in 0..100) }
+        update.notes?.let { require(it.length <= 4000) }
         return database.withConnection { connection ->
             connection.autoCommit = false
             try {
@@ -130,13 +172,27 @@ class FleetRepository(private val database: Database) {
                     }
                 } ?: return@withConnection null
                 connection.prepareStatement(
-                    "UPDATE maintenance_tasks SET status = ?, notes = COALESCE(?, notes), completed_at = ?, completed_mileage = ?, updated_at = NOW() WHERE id = ?::uuid"
+                    """UPDATE maintenance_tasks SET
+                    title = COALESCE(?, title),
+                    category = COALESCE(?, category),
+                    priority = COALESCE(?, priority),
+                    penalty = COALESCE(?, penalty),
+                    status = ?,
+                    notes = COALESCE(?, notes),
+                    completed_at = ?,
+                    completed_mileage = ?,
+                    updated_at = NOW()
+                    WHERE id = ?::uuid"""
                 ).use { statement ->
-                    statement.setString(1, update.status); statement.setString(2, update.notes)
-                    statement.setTimestamp(3, if (update.status == "completed") Timestamp.from(Instant.now()) else null)
+                    statement.setString(1, update.title?.trim())
+                    statement.setString(2, update.category?.trim())
+                    statement.setString(3, update.priority)
+                    if (update.penalty == null) statement.setNull(4, java.sql.Types.INTEGER) else statement.setInt(4, update.penalty)
+                    statement.setString(5, update.status); statement.setString(6, update.notes?.trim())
+                    statement.setTimestamp(7, if (update.status == "completed") Timestamp.from(Instant.now()) else null)
                     val mileage = update.completedMileage ?: task[2].toInt()
-                    if (update.status == "completed") statement.setInt(4, mileage) else statement.setNull(4, java.sql.Types.INTEGER)
-                    statement.setString(5, taskId); statement.executeUpdate()
+                    if (update.status == "completed") statement.setInt(8, mileage) else statement.setNull(8, java.sql.Types.INTEGER)
+                    statement.setString(9, taskId); statement.executeUpdate()
                 }
                 if (update.status == "completed") connection.prepareStatement(
                     "INSERT INTO service_records (id, vehicle_id, maintenance_task_id, title, mileage, notes) VALUES (?, ?::uuid, ?::uuid, ?, ?, ?)"

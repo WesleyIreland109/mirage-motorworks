@@ -13,6 +13,18 @@ export interface MaintenanceTask {
   source: string;
   notes: string;
 }
+export interface MaintenanceTaskInput {
+  title: string;
+  category: string;
+  priority: "verify" | "routine" | "important" | "safety";
+  penalty: number;
+  status: TaskStatus;
+  notes: string;
+}
+export type MaintenanceTaskUpdate = Partial<Omit<MaintenanceTaskInput, "status">> & {
+  status: TaskStatus;
+  completedMileage?: number;
+};
 export interface FleetVehicleShare {
   id: string;
   userId: string;

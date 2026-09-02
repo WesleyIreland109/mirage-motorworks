@@ -5,6 +5,8 @@ import type {
   FleetVehicleInput,
   FleetVehicleUpdate,
   BulkTelemetryImportResult,
+  MaintenanceTaskInput,
+  MaintenanceTaskUpdate,
   SessionImport,
   TaskStatus,
   TelemetryIntakeImport,
@@ -150,14 +152,27 @@ export async function updateFleetVehicle(
 export async function deleteFleetVehicle(id: string): Promise<void> {
   await request<void>(`/fleet/${id}`, { method: "DELETE" });
 }
+export async function createMaintenanceTask(
+  vehicleId: string,
+  input: MaintenanceTaskInput,
+): Promise<FleetVehicle> {
+  return request<FleetVehicle>(`/fleet/${vehicleId}/tasks`, {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
 export async function updateMaintenanceTask(
   id: string,
-  status: TaskStatus,
+  statusOrUpdate: TaskStatus | MaintenanceTaskUpdate,
   completedMileage?: number,
 ): Promise<FleetVehicle> {
+  const body =
+    typeof statusOrUpdate === "string"
+      ? { status: statusOrUpdate, completedMileage }
+      : statusOrUpdate;
   return request<FleetVehicle>(`/fleet/tasks/${id}`, {
     method: "PUT",
-    body: JSON.stringify({ status, completedMileage }),
+    body: JSON.stringify(body),
   });
 }
 export async function updateTelemetrySession(
